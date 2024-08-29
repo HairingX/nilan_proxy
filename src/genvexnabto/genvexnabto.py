@@ -51,16 +51,15 @@ class GenvexNabto():
         self.startListening()
         return    
     
-    def setDevice(self, device_id):
+    def setDevice(self, device_id, device_ip, device_port):
         self._device_id = device_id
-        self.getDeviceIP()
-
-    def setManualIP(self, device_ip, device_port):
-        self._device_ip = device_ip
-        self._device_port = device_port
-        self._device_id = device_ip.replace(".", "")
-        self._discovered_devices[self._device_id] = (device_ip, device_port)
-
+        if device_ip is None:
+            self.getDeviceIP()
+        else:
+            self._device_ip = device_ip
+            self._device_port = device_port
+            self._discovered_devices[self._device_id] = (device_ip, device_port)
+          
     def openSocket(self):
         if self._socket is not None:
             return
