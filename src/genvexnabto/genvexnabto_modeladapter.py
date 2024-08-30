@@ -76,17 +76,20 @@ class GenvexNabtoModelAdapter:
         return key in self._values
     
     def getValue(self, key: GenvexNabtoSetpointKey|GenvexNabtoDatapointKey):
-        return self._values[key]
+        return self._values.get(key)
     
     def getMinValue(self, key: GenvexNabtoSetpointKey):
         if self._loadedModel.modelProvidesSetpoint(key): 
             return (self._loadedModel._setpoints[key]['min'] + self._loadedModel._setpoints[key]['offset']) / self._loadedModel._setpoints[key]['divider']
-        return False
+        return None
     
     def getMaxValue(self, key: GenvexNabtoSetpointKey):
         if self._loadedModel.modelProvidesSetpoint(key): 
             return (self._loadedModel._setpoints[key]['max'] + self._loadedModel._setpoints[key]['offset']) / self._loadedModel._setpoints[key]['divider']
-        return False
+        return None
+    
+    def getUnitOfMeasure(self, key: GenvexNabtoSetpointKey|GenvexNabtoDatapointKey):
+        return self._loadedModel.getUnitOfMeasure(key)
     
     def getSetpointStep(self, key: GenvexNabtoSetpointKey):
         if self._loadedModel.modelProvidesSetpoint(key):
@@ -104,10 +107,9 @@ class GenvexNabtoModelAdapter:
             for method in self._update_handlers[key]:
                 method(-1, self._values[key])
 
-    
     def getDatapointRequestList(self, sequenceId):
         if sequenceId not in self._currentDatapointList:
-            return False
+            return None
         returnList = []
         for key in self._currentDatapointList[sequenceId]:
             returnList.append(self._loadedModel._datapoints[key])
@@ -115,7 +117,7 @@ class GenvexNabtoModelAdapter:
     
     def getSetpointRequestList(self, sequenceId):
         if sequenceId not in self._currentSetpointList:
-            return False
+            return None
         returnList = []
         for key in self._currentSetpointList[sequenceId]:
             returnList.append(self._loadedModel._setpoints[key])
@@ -132,7 +134,7 @@ class GenvexNabtoModelAdapter:
 
     def parseDatapointResponce(self, responceSeq, responcePayload):
         if responceSeq not in self._currentDatapointList:
-            return False
+            return None
         decodingKeys = self._currentDatapointList[responceSeq]
         print(decodingKeys)
         responceLength = int.from_bytes(responcePayload[0:2])
@@ -154,7 +156,7 @@ class GenvexNabtoModelAdapter:
     
     def parseSetpointResponce(self, responceSeq, responcePayload):
         if responceSeq not in self._currentSetpointList:
-            return False
+            return None
         decodingKeys = self._currentSetpointList[responceSeq]
         responceLength = int.from_bytes(responcePayload[1:3])
         for position in range(responceLength):

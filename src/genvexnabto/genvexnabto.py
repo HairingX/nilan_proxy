@@ -140,40 +140,45 @@ class GenvexNabto():
         dataTimeout = time.time() + 12
         while True:
             if self._model_adapter is not None:
-                if self._model_adapter.hasValue(GenvexNabtoDatapointKey.TEMP_SUPPLY) and self._model_adapter.hasValue(GenvexNabtoSetpointKey.TEMP_SETPOINT):
+                if self._model_adapter.hasValue(GenvexNabtoDatapointKey.TEMP_SUPPLY) and self._model_adapter.hasValue(GenvexNabtoSetpointKey.TEMP_TARGET):
                     return True
             if time.time() > dataTimeout:
                 return False
             await asyncio.sleep(0.2)
 
-    def providesValue(self, key: GenvexNabtoDatapointKey|GenvexNabtoSetpointKey):
+    def providesValue(self, key: GenvexNabtoDatapointKey|GenvexNabtoSetpointKey) -> bool:
         if self._model_adapter is None:
             return False
         return self._model_adapter.providesValue(key)
 
-    def hasValue(self, key: GenvexNabtoDatapointKey|GenvexNabtoSetpointKey):
-        if self._model_adapter is None:
+    def hasValue(self, key: GenvexNabtoDatapointKey|GenvexNabtoSetpointKey) -> bool:
+        if self._model_adapter is None or key is None:
             return False
         return self._model_adapter.hasValue(key)
     
     def getValue(self, key: GenvexNabtoDatapointKey|GenvexNabtoSetpointKey):
         if self._model_adapter is None:
-            return False
-        return self._model_adapter.getValue(key)
+            return None
+        return self._model_adapter.getValue(key) 
     
     def getSetpointMinValue(self, key: GenvexNabtoDatapointKey|GenvexNabtoSetpointKey):
         if self._model_adapter is None:
-            return False
+            return None
         return self._model_adapter.getMinValue(key)
     
     def getSetpointMaxValue(self, key: GenvexNabtoDatapointKey|GenvexNabtoSetpointKey):
         if self._model_adapter is None:
-            return False
+            return None
         return self._model_adapter.getMaxValue(key)
+    
+    def getUnitOfMeasure(self, key: GenvexNabtoDatapointKey|GenvexNabtoSetpointKey):
+        if self._model_adapter is None:
+            return None
+        return self._model_adapter.getUnitOfMeasure(key)
     
     def getSetpointStep(self, key: GenvexNabtoDatapointKey|GenvexNabtoSetpointKey):
         if self._model_adapter is None:
-            return False
+            return None
         return self._model_adapter.getSetpointStep(key)
     
     def registerUpdateHandler(self, key: GenvexNabtoSetpointKey|GenvexNabtoDatapointKey, updateMethod: Callable[[int, int], None]):

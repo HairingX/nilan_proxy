@@ -1,4 +1,4 @@
-from .basemodel import ( GenvexNabtoBaseModel, GenvexNabtoDatapoint, GenvexNabtoDatapointKey, GenvexNabtoSetpoint, GenvexNabtoSetpointKey )
+from .basemodel import ( GenvexNabtoBaseModel, GenvexNabtoDatapoint, GenvexNabtoDatapointKey, GenvexNabtoSetpoint, GenvexNabtoSetpointKey, GenvexNabtoUnits )
 from .optima314 import GenvexNabtoOptima314
 from .optima312 import GenvexNabtoOptima312
 from .optima301 import GenvexNabtoOptima301
@@ -15,6 +15,7 @@ __all__ = [
     "GenvexNabtoDatapointKey",
     "GenvexNabtoSetpoint",
     "GenvexNabtoSetpointKey",
+    "GenvexNabtoUnits",
     "GenvexNabtoOptima314",
     "GenvexNabtoOptima312",
     "GenvexNabtoOptima301",
