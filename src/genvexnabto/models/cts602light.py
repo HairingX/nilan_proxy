@@ -41,6 +41,9 @@ class GenvexNabtoCTS602Light(GenvexNabtoBaseModel):
             GenvexNabtoSetpointKey.TEMP_TARGET,
             GenvexNabtoSetpointKey.FILTER_REPLACE_INTERVAL
         ]
+        
+        self.setDefaultConfigs()
+        
 
     def getModelName(self):
         return "CTS 602light"

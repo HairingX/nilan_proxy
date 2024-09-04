@@ -41,17 +41,17 @@ class modelTester(unittest.TestCase):
             self.assertNotEqual(currentDatapoint["divider"], 0)
         
     def test_datapoint_request_is_list(self):
-        self.assertIsInstance(self.loadedModel.getDefaultDatapointRequest(), list)
+        self.assertIsInstance(self.loadedModel.getDatapointsForRead(), list)
 
     def test_valid_datapoint_request(self):
-        datapointRequest = self.loadedModel.getDefaultDatapointRequest()
+        datapointRequest = self.loadedModel.getDatapointsForRead()
         for key in datapointRequest:
             self.assertIn(key, self.loadedModel._datapoints)
 
     def test_setpoint_request_is_list(self):
-        self.assertIsInstance(self.loadedModel.getDefaultSetpointRequest(), list)
+        self.assertIsInstance(self.loadedModel.getSetpointsForRead(), list)
 
     def test_valid_setpoint_request(self):
-        setpointRequest = self.loadedModel.getDefaultSetpointRequest()
+        setpointRequest = self.loadedModel.getSetpointsForRead()
         for key in setpointRequest:
             self.assertIn(key, self.loadedModel._setpoints)

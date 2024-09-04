@@ -6,6 +6,7 @@ from .basemodel import (
     GenvexNabtoSetpointKey,
     GenvexNabtoSetpoint,
     GenvexNabtoUnits,
+    GenvexNabtoPointConfig,
 )
 
 
@@ -47,69 +48,8 @@ class GenvexNabtoCTS400(GenvexNabtoBaseModel):
             GenvexNabtoSetpointKey.TEMP_TARGET: GenvexNabtoSetpoint(read_obj=0, read_address=37, write_obj=0, write_address=37, divider=10, offset=0, min=0, max=300, step=0.5),
         }
 
-        self._unitOfMeasures[GenvexNabtoDatapointKey.ALARM_1] = GenvexNabtoUnits.UNDEFINED
-        self._unitOfMeasures[GenvexNabtoDatapointKey.ALARM_2] = GenvexNabtoUnits.UNDEFINED
-        self._unitOfMeasures[GenvexNabtoDatapointKey.ALARM_3] = GenvexNabtoUnits.UNDEFINED
-        self._unitOfMeasures[GenvexNabtoDatapointKey.BYPASS_ACTIVE] = GenvexNabtoUnits.BOOL
-        self._unitOfMeasures[GenvexNabtoDatapointKey.CO2_LEVEL] = GenvexNabtoUnits.PPM
-        self._unitOfMeasures[GenvexNabtoDatapointKey.DEFROST_ACTIVE] = GenvexNabtoUnits.BOOL
-        self._unitOfMeasures[GenvexNabtoDatapointKey.DEFROST_TIME_AGO] = GenvexNabtoUnits.DAYS
-        self._unitOfMeasures[GenvexNabtoDatapointKey.FAN_DUTYCYCLE_EXTRACT] = GenvexNabtoUnits.PCT
-        self._unitOfMeasures[GenvexNabtoDatapointKey.FAN_DUTYCYCLE_SUPPLY] = GenvexNabtoUnits.PCT
-        self._unitOfMeasures[GenvexNabtoDatapointKey.FILTER_REPLACE_TIME_REMAIN] = GenvexNabtoUnits.DAYS
-        self._unitOfMeasures[GenvexNabtoDatapointKey.HUMIDITY] = GenvexNabtoUnits.PCT
-        self._unitOfMeasures[GenvexNabtoDatapointKey.TEMP_EXHAUST] = GenvexNabtoUnits.CELSIUS
-        self._unitOfMeasures[GenvexNabtoDatapointKey.TEMP_EXTRACT] = GenvexNabtoUnits.CELSIUS
-        self._unitOfMeasures[GenvexNabtoDatapointKey.TEMP_OUTSIDE] = GenvexNabtoUnits.CELSIUS
-        self._unitOfMeasures[GenvexNabtoDatapointKey.TEMP_SUPPLY] = GenvexNabtoUnits.CELSIUS
-        self._unitOfMeasures[GenvexNabtoDatapointKey.WINTER_MODE_ACTIVE] = GenvexNabtoUnits.BOOL
-        self._unitOfMeasures[GenvexNabtoSetpointKey.ENABLE] = GenvexNabtoUnits.BOOL
-        self._unitOfMeasures[GenvexNabtoSetpointKey.FAN_LEVEL] = GenvexNabtoUnits.UNDEFINED
-        self._unitOfMeasures[GenvexNabtoSetpointKey.FAN_LEVEL1_EXTRACT_PRESET] = GenvexNabtoUnits.PCT
-        self._unitOfMeasures[GenvexNabtoSetpointKey.FAN_LEVEL1_SUPPLY_PRESET] = GenvexNabtoUnits.PCT
-        self._unitOfMeasures[GenvexNabtoSetpointKey.FAN_LEVEL2_EXTRACT_PRESET] = GenvexNabtoUnits.PCT
-        self._unitOfMeasures[GenvexNabtoSetpointKey.FAN_LEVEL2_SUPPLY_PRESET] = GenvexNabtoUnits.PCT
-        self._unitOfMeasures[GenvexNabtoSetpointKey.FAN_LEVEL3_EXTRACT_PRESET] = GenvexNabtoUnits.PCT
-        self._unitOfMeasures[GenvexNabtoSetpointKey.FAN_LEVEL3_SUPPLY_PRESET] = GenvexNabtoUnits.PCT
-        self._unitOfMeasures[GenvexNabtoSetpointKey.FAN_LEVEL4_EXTRACT_PRESET] = GenvexNabtoUnits.PCT
-        self._unitOfMeasures[GenvexNabtoSetpointKey.FAN_LEVEL4_SUPPLY_PRESET] = GenvexNabtoUnits.PCT
-        self._unitOfMeasures[GenvexNabtoSetpointKey.FILTER_REPLACE_RESET] = GenvexNabtoUnits.BOOL
-        self._unitOfMeasures[GenvexNabtoSetpointKey.TEMP_TARGET] = GenvexNabtoUnits.CELSIUS
-
-        self._defaultDatapointRequest = [
-            GenvexNabtoDatapointKey.ALARM_1,
-            GenvexNabtoDatapointKey.ALARM_2,
-            GenvexNabtoDatapointKey.ALARM_3,
-            GenvexNabtoDatapointKey.BYPASS_ACTIVE,
-            GenvexNabtoDatapointKey.CO2_LEVEL,
-            GenvexNabtoDatapointKey.DEFROST_ACTIVE,
-            GenvexNabtoDatapointKey.DEFROST_TIME_AGO,
-            GenvexNabtoDatapointKey.FAN_DUTYCYCLE_EXTRACT,
-            GenvexNabtoDatapointKey.FAN_DUTYCYCLE_SUPPLY,
-            GenvexNabtoDatapointKey.FILTER_REPLACE_TIME_REMAIN,
-            GenvexNabtoDatapointKey.HUMIDITY,
-            GenvexNabtoDatapointKey.TEMP_EXHAUST,
-            GenvexNabtoDatapointKey.TEMP_EXTRACT,
-            GenvexNabtoDatapointKey.TEMP_OUTSIDE,
-            GenvexNabtoDatapointKey.TEMP_SUPPLY,
-            GenvexNabtoDatapointKey.WINTER_MODE_ACTIVE,
-        ]
-
-        self._defaultSetpointRequest = [
-            GenvexNabtoSetpointKey.ENABLE,
-            GenvexNabtoSetpointKey.FAN_LEVEL,
-            GenvexNabtoSetpointKey.FAN_LEVEL1_EXTRACT_PRESET,
-            GenvexNabtoSetpointKey.FAN_LEVEL1_SUPPLY_PRESET,
-            GenvexNabtoSetpointKey.FAN_LEVEL2_EXTRACT_PRESET,
-            GenvexNabtoSetpointKey.FAN_LEVEL2_SUPPLY_PRESET,
-            GenvexNabtoSetpointKey.FAN_LEVEL3_EXTRACT_PRESET,
-            GenvexNabtoSetpointKey.FAN_LEVEL3_SUPPLY_PRESET,
-            GenvexNabtoSetpointKey.FAN_LEVEL4_EXTRACT_PRESET,
-            GenvexNabtoSetpointKey.FAN_LEVEL4_SUPPLY_PRESET,
-            GenvexNabtoSetpointKey.TEMP_TARGET,
-        ]
-
-
+        self.setDefaultConfigs()
+        
     def getModelType(self):
         return "CTS400"
 

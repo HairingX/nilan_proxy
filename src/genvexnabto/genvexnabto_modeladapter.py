@@ -20,8 +20,8 @@ class GenvexNabtoModelAdapter:
         self._loadedModel = modelToLoad()
         self._loadedModel.addDeviceQuirks(deviceNumber, slaveDeviceNumber, slaveDeviceModel)
             
-        self._currentDatapointList = {100: self._loadedModel.getDefaultDatapointRequest()}
-        self._currentSetpointList = {200: self._loadedModel.getDefaultSetpointRequest()}
+        self._currentDatapointList = {100: self._loadedModel.getDatapointsForRead()}
+        self._currentSetpointList = {200: self._loadedModel.getSetpointsForRead()}
 
     def getModelName(self):
         return self._loadedModel.getModelName()

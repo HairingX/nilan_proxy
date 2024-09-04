@@ -271,7 +271,7 @@ class GenvexNabto():
         if self._model_adapter is None:
             return
         datalist = self._model_adapter.getDatapointRequestList(sequenceId)
-        if datalist is False:
+        if datalist is None:
             return
         Payload = GenvexPayloadCrypt()
         Payload.setData(GenvexCommandDatapointReadList.buildCommand(datalist))
@@ -280,7 +280,7 @@ class GenvexNabto():
     def sendSetpointStateRequest(self, sequenceId):
         Payload = GenvexPayloadCrypt()
         datalist = self._model_adapter.getSetpointRequestList(sequenceId)
-        if datalist is False:
+        if datalist is None:
             return
         Payload.setData(GenvexCommandSetpointReadList.buildCommand(datalist))
         self._socket.sendto(GenvexPacket().build_packet(self._client_id, self._server_id, GenvexPacketType.DATA, sequenceId, [Payload]), (self._device_ip, self._device_port))

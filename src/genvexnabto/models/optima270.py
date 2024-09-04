@@ -15,8 +15,9 @@ class GenvexNabtoOptima270(GenvexNabtoBaseModel):
             GenvexNabtoDatapointKey.FAN_DUTYCYCLE_EXTRACT: GenvexNabtoDatapoint(obj=0, address=19, divider=100, offset=0),
             GenvexNabtoDatapointKey.FAN_RPM_SUPPLY: GenvexNabtoDatapoint(obj=0, address=35, divider=1, offset=0),
             GenvexNabtoDatapointKey.FAN_RPM_EXTRACT: GenvexNabtoDatapoint(obj=0, address=36, divider=1, offset=0),
-            GenvexNabtoDatapointKey.PREHEAT_PWM: GenvexNabtoDatapoint(obj=0, address=41, divider=100, offset=0),
-            GenvexNabtoDatapointKey.REHEAT_PWM: GenvexNabtoDatapoint(obj=0, address=42, divider=100, offset=0),
+            # The following 2 i cannot find documentation on, the type and function is therefore unknown.
+            # GenvexNabtoDatapointKey.REHEAT_PWM: GenvexNabtoDatapoint(obj=0, address=41, divider=100, offset=0),
+            # GenvexNabtoDatapointKey.REHEAT_PWM: GenvexNabtoDatapoint(obj=0, address=42, divider=100, offset=0),
             GenvexNabtoDatapointKey.BYPASS_ACTIVE: GenvexNabtoDatapoint(obj=0, address=53, divider=1, offset=0),
             GenvexNabtoDatapointKey.ALARM_BITS: GenvexNabtoDatapoint(obj=0, address=38, divider=1, offset=0)            
         }
@@ -25,7 +26,7 @@ class GenvexNabtoOptima270(GenvexNabtoBaseModel):
             GenvexNabtoSetpointKey.FAN_LEVEL: GenvexNabtoSetpoint(read_obj=0, read_address=7, write_obj=0, write_address=24, divider=1, offset=0, min=0, max=4),
             GenvexNabtoSetpointKey.TEMP_TARGET: GenvexNabtoSetpoint(read_obj=0, read_address=1, write_obj=0, write_address=12, divider=10, offset=100, min=0, max=200, step=0.5),
             GenvexNabtoSetpointKey.TEMP_BYPASS_OPEN_OFFSET: GenvexNabtoSetpoint(read_obj=0, read_address=21, write_obj=0, write_address=52, divider=10, offset=0, min=10, max=100, step=0.1),
-            GenvexNabtoSetpointKey.REHEATING_ENABLE: GenvexNabtoSetpoint(read_obj=0, read_address=3, write_obj=0, write_address=16, divider=1, offset=0, min=0, max=1),
+            GenvexNabtoSetpointKey.REHEAT_ENABLE: GenvexNabtoSetpoint(read_obj=0, read_address=3, write_obj=0, write_address=16, divider=1, offset=0, min=0, max=1),
             GenvexNabtoSetpointKey.HUMIDITY_CONTROL_ENABLE: GenvexNabtoSetpoint(read_obj=0, read_address=6, write_obj=0, write_address=22, divider=1, offset=0, min=0, max=1),
             GenvexNabtoSetpointKey.BOOST_ENABLE: GenvexNabtoSetpoint(read_obj=0, read_address=30, write_obj=0, write_address=70, divider=1, offset=0, min=0, max=1),
             GenvexNabtoSetpointKey.BOOST_TIME: GenvexNabtoSetpoint(read_obj=0, read_address=70, write_obj=0, write_address=150, divider=1, offset=0, min=1, max=120, step=1),
@@ -40,46 +41,12 @@ class GenvexNabtoOptima270(GenvexNabtoBaseModel):
             GenvexNabtoSetpointKey.FAN_LEVEL3_EXTRACT_PRESET: GenvexNabtoSetpoint(read_obj=0, read_address=15, write_obj=0, write_address=40, divider=1, offset=0, min=0, max=100, step=1),
             GenvexNabtoSetpointKey.FAN_LEVEL4_EXTRACT_PRESET: GenvexNabtoSetpoint(read_obj=0, read_address=9, write_obj=0, write_address=28, divider=1, offset=0, min=0, max=100, step=1)
         }
+        
+        self.setDefaultConfigs()
+
 
     def getModelName(self):
         return "Optima 270"
     
     def getManufacturer(self):
         return "Genvex"
-
-    def getDefaultDatapointRequest(self) -> List[GenvexNabtoDatapointKey]:
-        return [
-            GenvexNabtoDatapointKey.TEMP_SUPPLY,
-            GenvexNabtoDatapointKey.TEMP_OUTSIDE,
-            GenvexNabtoDatapointKey.TEMP_EXHAUST,
-            GenvexNabtoDatapointKey.TEMP_EXTRACT,
-            GenvexNabtoDatapointKey.HUMIDITY,
-            GenvexNabtoDatapointKey.FAN_DUTYCYCLE_SUPPLY,
-            GenvexNabtoDatapointKey.FAN_DUTYCYCLE_EXTRACT,
-            GenvexNabtoDatapointKey.FAN_RPM_SUPPLY,            
-            GenvexNabtoDatapointKey.FAN_RPM_EXTRACT,
-            GenvexNabtoDatapointKey.PREHEAT_PWM,
-            GenvexNabtoDatapointKey.REHEAT_PWM,
-            GenvexNabtoDatapointKey.BYPASS_ACTIVE,
-            GenvexNabtoDatapointKey.ALARM_BITS
-        ]
-    
-    def getDefaultSetpointRequest(self) -> List[GenvexNabtoSetpointKey]:
-        return [
-            GenvexNabtoSetpointKey.FAN_LEVEL,
-            GenvexNabtoSetpointKey.TEMP_TARGET,
-            GenvexNabtoSetpointKey.TEMP_BYPASS_OPEN_OFFSET,
-            GenvexNabtoSetpointKey.REHEATING_ENABLE,
-            GenvexNabtoSetpointKey.HUMIDITY_CONTROL_ENABLE,
-            GenvexNabtoSetpointKey.BOOST_ENABLE,
-            GenvexNabtoSetpointKey.BOOST_TIME,
-            GenvexNabtoSetpointKey.FILTER_REPLACE_INTERVAL,
-            GenvexNabtoSetpointKey.FAN_LEVEL1_SUPPLY_PRESET,
-            GenvexNabtoSetpointKey.FAN_LEVEL2_SUPPLY_PRESET,
-            GenvexNabtoSetpointKey.FAN_LEVEL3_SUPPLY_PRESET,
-            GenvexNabtoSetpointKey.FAN_LEVEL4_SUPPLY_PRESET,
-            GenvexNabtoSetpointKey.FAN_LEVEL1_EXTRACT_PRESET,
-            GenvexNabtoSetpointKey.FAN_LEVEL2_EXTRACT_PRESET,
-            GenvexNabtoSetpointKey.FAN_LEVEL3_EXTRACT_PRESET,
-            GenvexNabtoSetpointKey.FAN_LEVEL4_EXTRACT_PRESET
-        ]

@@ -20,20 +20,17 @@ class GenvexNabtoDatapointKey:
     FAN_LEVEL_SUPPLY = "fan_level_supply"
     FAN_RPM_EXTRACT = "fan_rpm_extract"
     FAN_RPM_SUPPLY = "fan_rpm_supply"
-    FILTER_REPLACE_TIME_REMAIN = "filter_replace_time_remain"
-    """
-    (default=days)
-    """
     FILTER_REPLACE_TIME_AGO = "filter_replace_time_ago"
     """
     (default=days)
     """
+    FILTER_REPLACE_TIME_REMAIN = "filter_replace_time_remain"
+    """
+    (default=days)
+    """
     HUMIDITY = "humidity"
-    PREHEAT_PWM = "preheat_pwm"
-    REHEAT_PWM = "reheat_pwm"
     SACRIFICIAL_ANODE_OK = "sacrificial_anode_ok"
     STATE_CODE = "state_code"
-    WINTER_MODE_ACTIVE = "winter_mode_active"
     TEMP_CONDENSER = "temp_condenser"
     TEMP_EVAPORATOR = "temp_evaporator"
     TEMP_EXHAUST = "temp_exhaust"
@@ -43,6 +40,7 @@ class GenvexNabtoDatapointKey:
     TEMP_OUTSIDE = "temp_outside"
     TEMP_ROOM = "temp_room"
     TEMP_SUPPLY = "temp_supply"
+    WINTER_MODE_ACTIVE = "winter_mode_active"
 
 
 class GenvexNabtoSetpointKey:
@@ -143,18 +141,26 @@ class GenvexNabtoSetpointKey:
     
     Typically this will be extra fan level when showering or alike.
     """
-    PREHEATING_ENABLE = "preheating_enable"
+    PREHEAT_ENABLE = "preheat_enable"
     """
-    Enable the prehet function for the unit.
+    Enable the preheat function for the unit.
     
     Typically this will be a heating element for the outside air.
     """
-    REHEATING_ENABLE = "reheating_enable"
+    PREHEAT_CYCLE_TIME = "preheat_cycle_time"
+    PREHEAT_PID_P = "preheat_pid_p"
+    PREHEAT_PID_I = "preheat_pid_i"
+    PREHEAT_PID_D = "preheat_pid_d"
+    REHEAT_ENABLE = "reheat_enable"
     """
     Enable the prehet function for the unit.
     
     Typically this will be a heating element for the extract air.
     """
+    REHEAT_CYCLE_TIME = "reheat_cycle_time"
+    REHEAT_PID_P = "reheat_pid_p"
+    REHEAT_PID_I = "reheat_pid_i"
+    REHEAT_PID_D = "reheat_pid_d"
     TEMP_BYPASS_OPEN_OFFSET = "temp_bypass_open_offset"
     """
     Temperature offset for when the bypass function.
@@ -192,6 +198,8 @@ class GenvexNabtoSetpointKey:
     
     This is the auxiliary (boosting) heating element
     """
+    TEMP_REHEAT_OFFSET = "temp_reheat_offset"
+    """Temperature offset relative to indoor for the reheating"""
     TEMP_TARGET = "temp_target"
     """
     Temperature setpoint for the home
@@ -246,11 +254,17 @@ class GenvexNabtoSetpoint(TypedDict):
     write_address: int
     write_obj: int
 
+class GenvexNabtoPointConfig(TypedDict):
+    unit_of_measurement: str
+    read: bool
 
 class GenvexNabtoUnits:
-    DAYS = "d"
-    MONTHS = "m"
-    YEARS = "y"
+    SECONDS = "seconds"
+    MINUTES = "minutes"
+    HOURS = "hours"
+    DAYS = "days"
+    MONTHS = "months"
+    YEARS = "years"
     CELSIUS = "celsius"
     BOOL = "bool"
     BITMASK = "bitmask"
@@ -262,17 +276,88 @@ class GenvexNabtoUnits:
     # FLOAT = "float"
     PCT = "percent"
     UNDEFINED = None
-
+    
+DEFAULT_CONFIGS = {
+            GenvexNabtoDatapointKey.ALARM_1: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.UNDEFINED, read=True),
+            GenvexNabtoDatapointKey.ALARM_2:GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.UNDEFINED, read=True),
+            GenvexNabtoDatapointKey.ALARM_3:GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.UNDEFINED, read=True),
+            GenvexNabtoDatapointKey.ALARM_ACTIVE:GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.BOOL, read=True),
+            GenvexNabtoDatapointKey.ALARM_BITS:GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.BITMASK, read=True),
+            GenvexNabtoDatapointKey.BYPASS_ACTIVE: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.BOOL, read=True),
+            GenvexNabtoDatapointKey.CO2_LEVEL: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.PPM, read=True),
+            GenvexNabtoDatapointKey.DEFROST_ACTIVE: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.BOOL, read=True),
+            GenvexNabtoDatapointKey.DEFROST_TIME_AGO:GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.DAYS, read=True),
+            GenvexNabtoDatapointKey.FAN_DUTYCYCLE_EXTRACT: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.PCT, read=True),
+            GenvexNabtoDatapointKey.FAN_DUTYCYCLE_SUPPLY: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.PCT, read=True),
+            GenvexNabtoDatapointKey.FAN_LEVEL_EXTRACT: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.UNDEFINED, read=True),
+            GenvexNabtoDatapointKey.FAN_LEVEL_SUPPLY: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.UNDEFINED, read=True),
+            GenvexNabtoDatapointKey.FAN_RPM_EXTRACT: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.RPM, read=True),
+            GenvexNabtoDatapointKey.FAN_RPM_SUPPLY: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.RPM, read=True),
+            GenvexNabtoDatapointKey.FILTER_REPLACE_TIME_AGO: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.DAYS, read=True),
+            GenvexNabtoDatapointKey.FILTER_REPLACE_TIME_REMAIN: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.DAYS, read=True),
+            GenvexNabtoDatapointKey.HUMIDITY: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.PCT, read=True),
+            GenvexNabtoDatapointKey.SACRIFICIAL_ANODE_OK: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.BOOL, read=True),
+            GenvexNabtoDatapointKey.STATE_CODE: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.UNDEFINED, read=True),
+            GenvexNabtoDatapointKey.TEMP_CONDENSER:GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.CELSIUS, read=True),
+            GenvexNabtoDatapointKey.TEMP_EVAPORATOR:GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.CELSIUS, read=True),
+            GenvexNabtoDatapointKey.TEMP_EXHAUST:GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.CELSIUS, read=True),
+            GenvexNabtoDatapointKey.TEMP_EXTRACT: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.CELSIUS, read=True),
+            GenvexNabtoDatapointKey.TEMP_HOTWATER_BOTTOM: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.CELSIUS, read=True),
+            GenvexNabtoDatapointKey.TEMP_HOTWATER_TOP: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.CELSIUS, read=True),
+            GenvexNabtoDatapointKey.TEMP_OUTSIDE: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.CELSIUS, read=True),
+            GenvexNabtoDatapointKey.TEMP_ROOM: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.CELSIUS, read=True),
+            GenvexNabtoDatapointKey.TEMP_SUPPLY: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.CELSIUS, read=True),
+            GenvexNabtoDatapointKey.WINTER_MODE_ACTIVE:GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.BOOL, read=True),
+            
+            GenvexNabtoSetpointKey.ANTILEGIONELLA_DAY: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.UNDEFINED, read=True),
+            GenvexNabtoSetpointKey.BOOST_ENABLE: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.BOOL, read=True),
+            GenvexNabtoSetpointKey.BOOST_TIME: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.MINUTES, read=True),
+            GenvexNabtoSetpointKey.COOLING_ENABLE: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.BOOL, read=True),
+            GenvexNabtoSetpointKey.COMPRESSOR_PRIORITY: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.UNDEFINED, read=True),
+            GenvexNabtoSetpointKey.ENABLE: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.BOOL, read=True),
+            GenvexNabtoSetpointKey.FAN_LEVEL: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.UNDEFINED, read=True),
+            GenvexNabtoSetpointKey.FAN_LEVEL1_EXTRACT_PRESET:GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.PCT, read=True),
+            GenvexNabtoSetpointKey.FAN_LEVEL1_SUPPLY_PRESET: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.PCT, read=True),
+            GenvexNabtoSetpointKey.FAN_LEVEL2_EXTRACT_PRESET:GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.PCT, read=True),
+            GenvexNabtoSetpointKey.FAN_LEVEL2_SUPPLY_PRESET: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.PCT, read=True),
+            GenvexNabtoSetpointKey.FAN_LEVEL3_EXTRACT_PRESET:GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.PCT, read=True),
+            GenvexNabtoSetpointKey.FAN_LEVEL3_SUPPLY_PRESET: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.PCT, read=True),
+            GenvexNabtoSetpointKey.FAN_LEVEL4_EXTRACT_PRESET:GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.PCT, read=True),
+            GenvexNabtoSetpointKey.FAN_LEVEL4_SUPPLY_PRESET: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.PCT, read=True),
+            GenvexNabtoSetpointKey.FILTER_REPLACE_INTERVAL: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.DAYS, read=True),
+            GenvexNabtoSetpointKey.FILTER_REPLACE_RESET: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.BOOL, read=False),
+            GenvexNabtoSetpointKey.HUMIDITY_CONTROL_ENABLE: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.BOOL, read=True),
+            GenvexNabtoSetpointKey.PREHEAT_ENABLE: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.BOOL, read=True),
+            GenvexNabtoSetpointKey.PREHEAT_CYCLE_TIME: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.SECONDS, read=True),
+            GenvexNabtoSetpointKey.PREHEAT_PID_D: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.UNDEFINED, read=True),
+            GenvexNabtoSetpointKey.PREHEAT_PID_I: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.UNDEFINED, read=True),
+            GenvexNabtoSetpointKey.PREHEAT_PID_P: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.UNDEFINED, read=True),
+            GenvexNabtoSetpointKey.REHEAT_ENABLE: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.BOOL, read=True),
+            GenvexNabtoSetpointKey.REHEAT_CYCLE_TIME: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.SECONDS, read=True),
+            GenvexNabtoSetpointKey.REHEAT_PID_D: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.UNDEFINED, read=True),
+            GenvexNabtoSetpointKey.REHEAT_PID_I: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.UNDEFINED, read=True),
+            GenvexNabtoSetpointKey.REHEAT_PID_P: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.UNDEFINED, read=True),
+            GenvexNabtoSetpointKey.TEMP_BYPASS_OPEN_OFFSET: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.CELSIUS, read=True),
+            GenvexNabtoSetpointKey.TEMP_COOLING_START_OFFSET: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.CELSIUS, read=True),
+            GenvexNabtoSetpointKey.TEMP_HOTWATER: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.CELSIUS, read=True),
+            GenvexNabtoSetpointKey.TEMP_HOTWATER_BOOST: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.CELSIUS, read=True),
+            GenvexNabtoSetpointKey.TEMP_REHEAT_OFFSET: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.CELSIUS, read=True),
+            GenvexNabtoSetpointKey.TEMP_TARGET: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.CELSIUS, read=True),
+            GenvexNabtoSetpointKey.TEMP_SUMMER_SUPPLY_MAX: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.CELSIUS, read=True),
+            GenvexNabtoSetpointKey.TEMP_SUMMER_SUPPLY_MIN: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.CELSIUS, read=True),
+            GenvexNabtoSetpointKey.TEMP_SUPPLY_MAX: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.CELSIUS, read=True),
+            GenvexNabtoSetpointKey.TEMP_SUPPLY_MIN: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.CELSIUS, read=True),
+            GenvexNabtoSetpointKey.TEMP_WINTER_SUPPLY_MAX: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.CELSIUS, read=True),
+            GenvexNabtoSetpointKey.TEMP_WINTER_SUPPLY_MIN: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.CELSIUS, read=True),
+            GenvexNabtoSetpointKey.TEMP_WINTER_MODE_THRESHOLD: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.CELSIUS, read=True),
+        }
 
 class GenvexNabtoBaseModel:
     _datapoints: Dict[GenvexNabtoDatapointKey, GenvexNabtoDatapoint] = {}
     _setpoints: Dict[GenvexNabtoSetpointKey, GenvexNabtoSetpoint] = {}
-    _unitOfMeasures: Dict[GenvexNabtoDatapointKey|GenvexNabtoSetpointKey, str] = {}
+    _configs: Dict[GenvexNabtoDatapointKey|GenvexNabtoSetpointKey, GenvexNabtoPointConfig] = {}
     _valueMap: Dict[GenvexNabtoDatapointKey|GenvexNabtoSetpointKey, Dict[float | int, float | int | str]] = {}
     _quirks: Dict[str, list[int]] = {}
-
-    _defaultDatapointRequest: List[GenvexNabtoDatapointKey] = []
-    _defaultSetpointRequest: List[GenvexNabtoDatapointKey] = []
 
     def __init__(self):
         return
@@ -289,14 +374,14 @@ class GenvexNabtoBaseModel:
     def modelProvidesDatapoint(self, datapoint: GenvexNabtoDatapointKey) -> bool:
         return datapoint in self._datapoints
 
-    def getDefaultDatapointRequest(self) -> List[GenvexNabtoDatapointKey]:
-        return self._defaultDatapointRequest
+    def getDatapointsForRead(self) -> List[GenvexNabtoDatapointKey]:
+        return [key for key, value in self._configs.items() if key in self._datapoints and value.get("read", False) == True]
 
     def modelProvidesSetpoint(self, datapoint: GenvexNabtoSetpointKey) -> bool:
         return datapoint in self._setpoints
 
-    def getDefaultSetpointRequest(self) -> List[GenvexNabtoSetpointKey]:
-        return self._defaultSetpointRequest
+    def getSetpointsForRead(self) -> List[GenvexNabtoSetpointKey]:
+        return [key for key, value in self._configs.items() if key in self._setpoints and value.get("read", False) == True]
 
     def deviceHasQuirk(self, quirk, device) -> bool:
         if quirk not in self._quirks:
@@ -307,7 +392,18 @@ class GenvexNabtoBaseModel:
         return
 
     def getUnitOfMeasure(self, key:GenvexNabtoDatapointKey|GenvexNabtoSetpointKey) -> str:
-        if key in self._unitOfMeasures:
-            return self._unitOfMeasures[key]
+        if key in self._configs:
+            return self._configs[key].get("unit_of_measurement", None)
         return None
+    
+    def setDefaultConfigs(self):
+        """Sets the point configurations to the standard setup, will not override already assigned records"""
+    #     # only keep the points supported by the unit
+    #     self._configs = {key: value for key, value in DEFAULT_CONFIGS.items() if key in self._setpoints or key in self._datapoints}
 
+    # def addMissingDefaultConfigs(self):
+        # Update self._configs with missing items from DEFAULT_CONFIGS
+        self._configs.update({
+            key: value for key, value in DEFAULT_CONFIGS.items()
+            if key not in self._configs and (key in self._setpoints or key in self._datapoints)
+        })
