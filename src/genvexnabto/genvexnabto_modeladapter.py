@@ -80,12 +80,12 @@ class GenvexNabtoModelAdapter:
     
     def getMinValue(self, key: GenvexNabtoSetpointKey):
         if self._loadedModel.modelProvidesSetpoint(key): 
-            return (self._loadedModel._setpoints[key]['min'] + self._loadedModel._setpoints[key]['offset']) / self._loadedModel._setpoints[key]['divider']
+            return self.parseValue(fromModbus=True, point=self._loadedModel._setpoints[key], value=self._loadedModel._setpoints[key]['min'])
         return None
     
     def getMaxValue(self, key: GenvexNabtoSetpointKey):
         if self._loadedModel.modelProvidesSetpoint(key): 
-            return (self._loadedModel._setpoints[key]['max'] + self._loadedModel._setpoints[key]['offset']) / self._loadedModel._setpoints[key]['divider']
+            return self.parseValue(fromModbus=True, point=self._loadedModel._setpoints[key], value=self._loadedModel._setpoints[key]['max'])
         return None
     
     def getUnitOfMeasure(self, key: GenvexNabtoSetpointKey|GenvexNabtoDatapointKey):
@@ -94,7 +94,7 @@ class GenvexNabtoModelAdapter:
     def getSetpointStep(self, key: GenvexNabtoSetpointKey):
         if self._loadedModel.modelProvidesSetpoint(key):
             if "step" in self._loadedModel._setpoints[key]:             
-                return self._loadedModel._setpoints[key]['step']
+                return self._loadedModel._setpoints[key]['step'] / self._loadedModel._setpoints[key]['divider']
         return 1
     
     def registerUpdateHandler(self, key: GenvexNabtoSetpointKey|GenvexNabtoDatapointKey, updateMethod: Callable[[int, int], None]):
@@ -123,54 +123,72 @@ class GenvexNabtoModelAdapter:
             returnList.append(self._loadedModel._setpoints[key])
         return returnList
     
-    def parseDataResponce(self, responceSeq, responcePayload):
-        print(f"Got dataresponce with sequence id: {responceSeq}")
-        if responceSeq in self._currentDatapointList:
-            print(f"Is a datapoint responce")
-            return self.parseDatapointResponce(responceSeq, responcePayload)
-        if responceSeq in self._currentSetpointList:
-            print(f"Is a setpoint responce")
-            return self.parseSetpointResponce(responceSeq, responcePayload)
+    def parseDataResponse(self, responseSeq, responsePayload):
+        print(f"Got dataresponse with sequence id: {responseSeq}")
+        if responseSeq in self._currentDatapointList:
+            print(f"Is a datapoint response")
+            return self.parseDatapointResponse(responseSeq, responsePayload)
+        if responseSeq in self._currentSetpointList:
+            print(f"Is a setpoint response")
+            return self.parseSetpointResponse(responseSeq, responsePayload)
 
-    def parseDatapointResponce(self, responceSeq, responcePayload):
-        if responceSeq not in self._currentDatapointList:
+    def parseDatapointResponse(self, responseSeq, responsePayload):
+        if responseSeq not in self._currentDatapointList:
             return None
-        decodingKeys = self._currentDatapointList[responceSeq]
+        decodingKeys = self._currentDatapointList[responseSeq]
         print(decodingKeys)
-        responceLength = int.from_bytes(responcePayload[0:2])
-        for position in range(responceLength):
+        responseLength = int.from_bytes(responsePayload[0:2])
+        for position in range(responseLength):
             valueKey = decodingKeys[position]
-            payloadSlice = responcePayload[2+position*2:4+position*2]
+            payloadSlice = responsePayload[2+position*2:4+position*2]
             oldValue = -1
             if valueKey in self._values:
                 oldValue = self._values[valueKey]
-            self._values[valueKey] = (int.from_bytes(payloadSlice, 'big', signed=True) + self._loadedModel._datapoints[valueKey]['offset'])
-            if self._loadedModel._datapoints[valueKey]['divider'] > 1:
-                self._values[valueKey] /= self._loadedModel._datapoints[valueKey]['divider']
-            
+            point = self._loadedModel._datapoints[valueKey]
+            signed = False if "signed" not in point else point["signed"]
+            self._values[valueKey] = self.parseValue(fromModbus=True, point=point, value=int.from_bytes(payloadSlice, 'big', signed=signed))
             if oldValue != self._values[valueKey]:
                 if valueKey in self._update_handlers:
                     for method in self._update_handlers[valueKey]:
                         method(oldValue, self._values[valueKey])
-        return
-    
-    def parseSetpointResponce(self, responceSeq, responcePayload):
-        if responceSeq not in self._currentSetpointList:
+     
+     
+    def parseSetpointResponse(self, responseSeq, responsePayload):
+        if responseSeq not in self._currentSetpointList:
             return None
-        decodingKeys = self._currentSetpointList[responceSeq]
-        responceLength = int.from_bytes(responcePayload[1:3])
-        for position in range(responceLength):
+        decodingKeys = self._currentSetpointList[responseSeq]
+        responseLength = int.from_bytes(responsePayload[1:3])
+        for position in range(responseLength):
             valueKey = decodingKeys[position]
-            payloadSlice = responcePayload[3+position*2:5+position*2]
+            payloadSlice = responsePayload[3+position*2:5+position*2]
             oldValue = -1
             if valueKey in self._values:
                 oldValue = self._values[valueKey]
-            self._values[valueKey] = (int.from_bytes(payloadSlice, 'big') + self._loadedModel._setpoints[valueKey]['offset'])
-            if self._loadedModel._setpoints[valueKey]['divider'] > 1:
-                self._values[valueKey] /= self._loadedModel._setpoints[valueKey]['divider']
+            point = self._loadedModel._setpoints[valueKey]
+            signed = False if "signed" not in point else point["signed"]
+            self._values[valueKey] = self.parseValue(fromModbus=True, point=point, value=int.from_bytes(payloadSlice, 'big', signed=signed))
             if oldValue != self._values[valueKey]:
                 if valueKey in self._update_handlers:
                     for method in self._update_handlers[valueKey]:
                         method(oldValue, self._values[valueKey])
-        return
 
+
+    def parseValue(self, fromModbus:bool, point:GenvexNabtoDatapoint|GenvexNabtoSetpoint, value):
+        if value is None: return None
+        invert_from = None
+        divider = 1
+        offset = None
+        if "invert_from" in point: invert_from = point["invert_from"]
+        if "divider" in point: divider = point["divider"]
+        if "offset" in point: offset = point["offset"]
+        # divider = 1 if "divider" not in point else point['divider']
+        # offset = None if "offset" not in point else point['offset']
+        if fromModbus == True:
+            if invert_from is not None: value = invert_from - value
+            if offset is not None: value += offset 
+            if divider > 1: value /= divider
+        else: 
+            if divider > 1: value *= divider
+            if offset is not None: value -= offset 
+            if invert_from is not None: value = invert_from - value
+        return value

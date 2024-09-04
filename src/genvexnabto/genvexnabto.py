@@ -36,7 +36,7 @@ class GenvexNabto():
 
     _is_connected = False
     _connection_error = False
-    _last_responce = 0
+    _last_response = 0
     _last_dataupdate = 0
     _last_setpointupdate = 0
 
@@ -207,14 +207,14 @@ class GenvexNabto():
             self._connection_error = GenvexNabtoConnectionErrorType.UNSUPPORTED_MODEL
 
     def processReceivedMessage(self, message, address):
-        if message[0:4] == b'\x00\x80\x00\x01': # This might be a discovery packet responce!
-            discoveryResponce = message[19:len(message)]
+        if message[0:4] == b'\x00\x80\x00\x01': # This might be a discovery packet response!
+            discoveryResponse = message[19:len(message)]
             deviceIdLength = 0
-            for b in discoveryResponce: # Loop until first string terminator
+            for b in discoveryResponse: # Loop until first string terminator
                 if b == 0x00:
                     break
                 deviceIdLength += 1
-            deviceId = discoveryResponce[0: deviceIdLength].decode("ascii")
+            deviceId = discoveryResponse[0: deviceIdLength].decode("ascii")
             if "remote.lscontrol.dk" in deviceId:
                 # This is a valid reponse from a GenvexConnect device!
                 # Add the device Id and IP to our list if not seen before.
@@ -225,10 +225,10 @@ class GenvexNabto():
             return
         if message[0:4] != self._client_id: # Not a packet intented for us
             return
-        self._last_responce = time.time()
+        self._last_response = time.time()
         packetType = message[8].to_bytes(1, 'big')
         if (packetType == GenvexPacketType.U_CONNECT):
-            print("U_CONNECT responce packet")
+            print("U_CONNECT response packet")
             if (message[20:24] == b'\x00\x00\x00\x01'):
                 self._server_id = message[24:28]
                 print('Connected, pinging to get model number')
@@ -251,7 +251,7 @@ class GenvexNabto():
                     self.processPingPayload(payload)
                 else:
                     if self._model_adapter is not None:
-                        self._model_adapter.parseDataResponce(sequenceId, payload)
+                        self._model_adapter.parseDataResponse(sequenceId, payload)
                     if sequenceId == 100:                        
                         self._last_dataupdate = time.time()
                     if sequenceId == 200:                        
@@ -291,7 +291,7 @@ class GenvexNabto():
         if self._model_adapter.providesValue(setpointKey) is False:
             return False
         setpointData = self._model_adapter._loadedModel._setpoints[setpointKey]
-        newValue = int((newValue * setpointData["divider"]) - setpointData['offset'])
+        newValue = self._model_adapter.parseValue(fromModbus=False, point=setpointData, value=newValue)
         if newValue < setpointData['min'] or newValue > setpointData['max']:
             return False
         Payload = GenvexPayloadCrypt()
@@ -318,6 +318,6 @@ class GenvexNabto():
                     self.sendDataStateRequest(100)
                 if time.time() - self._last_setpointupdate > SETPOINT_UPDATEINTERVAL:                    
                     self.sendSetpointStateRequest(200)
-                if time.time() - self._last_responce > SECONDS_UNTILRECONNECT:
+                if time.time() - self._last_response > SECONDS_UNTILRECONNECT:
                     self.connectToDevice()
                     
