@@ -1,7 +1,8 @@
+from enum import Enum
 from typing import Dict, List, TypedDict, NotRequired
 
 
-class GenvexNabtoDatapointKey:
+class GenvexNabtoDatapointKey(Enum):
     ALARM_1_CODE = "alarm_1_code"
     ALARM_1_INFO = "alarm_1_info"
     ALARM_2_CODE = "alarm_2_code"
@@ -57,7 +58,7 @@ class GenvexNabtoDatapointKey:
     UNKNOWN_VALUE_1 = "unknown_value_1"
 
 
-class GenvexNabtoSetpointKey:
+class GenvexNabtoSetpointKey(Enum):
     """
     Setpoints that can be read/written.
 
@@ -218,43 +219,33 @@ class GenvexNabtoSetpointKey:
     
     
 class GenvexNabtoDatapoint(TypedDict):
-    address: int
-    divider: int
+    divider: NotRequired[int]
     """Applied to the register value in the order: 1: invert_from, 2: divider, 3: offset"""
-    obj: int
-    offset: int
+    offset: NotRequired[int]
     """Applied to the register value in the order: 1: invert_from, 2: divider, 3: offset"""
+    read_address: int
+    read_obj: NotRequired[int]
+    """default is 0"""
     signed: bool
-    """indication of the data being signed, (default is unsigned)"""
-    invert_from: int
+    """indication of the data being signed or unsigned"""
+    invert_from: NotRequired[int]
     """Applied to the register value in the order: 1: invert_from, 2: divider, 3: offset
     
     Inverts the register value by setting this to the max value, ex. set to 1 to invert a bool"""
 
-class GenvexNabtoSetpoint(TypedDict):
-    divider: int
-    """Applied to the register value in the order: 1: invert_from, 2: divider, 3: offset"""
+class GenvexNabtoSetpoint(GenvexNabtoDatapoint):
     max: int
     """max value in the register"""
     min: int
     """min value in the register"""
-    offset: int
-    """Applied to the register value in the order: 1: invert_from, 2: divider, 3: offset"""
-    read_address: int
-    read_obj: int
-    signed: bool
-    """indication of the data being signed, (default is unsigned)"""
-    step: int
+    step: NotRequired[int]
     """step size in register value, if unset will default to the divider"""
     write_address: int
-    write_obj: int
-    invert_from: int
-    """Applied to the register value in the order: 1: invert_from, 2: divider, 3: offset
-    
-    Inverts the register value by setting this to the max value, ex. set to 1 to invert a bool"""
+    write_obj: NotRequired[int]
+    """default is 0"""
 
 class GenvexNabtoPointConfig(TypedDict):
-    unit_of_measurement: str
+    unit_of_measurement: str|None
     read: bool
 
 class GenvexNabtoUnits:
@@ -277,7 +268,7 @@ class GenvexNabtoUnits:
     TEXT = "text"
     UNDEFINED = None
     
-DEFAULT_CONFIGS = {
+DEFAULT_CONFIGS:Dict[GenvexNabtoDatapointKey|GenvexNabtoSetpointKey, GenvexNabtoPointConfig] = {
             GenvexNabtoDatapointKey.ALARM_1_CODE: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.UNDEFINED, read=True),
             GenvexNabtoDatapointKey.ALARM_1_INFO: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.TEXT, read=True),
             GenvexNabtoDatapointKey.ALARM_2_CODE:GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.UNDEFINED, read=True),
@@ -378,50 +369,41 @@ DEFAULT_CONFIGS = {
         }
 
 class GenvexNabtoBaseModel:
-    _datapoints: Dict[GenvexNabtoDatapointKey, GenvexNabtoDatapoint] = {}
-    _setpoints: Dict[GenvexNabtoSetpointKey, GenvexNabtoSetpoint] = {}
+    
+    _attr_manufacturer:str = ""
+    _attr_model_name:str = "Basemodel"
+    
+    datapoints: Dict[GenvexNabtoDatapointKey, GenvexNabtoDatapoint] = {}
+    setpoints: Dict[GenvexNabtoSetpointKey, GenvexNabtoSetpoint] = {}
     _configs: Dict[GenvexNabtoDatapointKey|GenvexNabtoSetpointKey, GenvexNabtoPointConfig] = {}
     _valueMap: Dict[GenvexNabtoDatapointKey|GenvexNabtoSetpointKey, Dict[float | int, float | int | str]] = {}
-    _quirks: Dict[str, list[int]] = {}
 
-    def __init__(self):
+    def __init__(self) -> None:
         return
 
-    def getModelName(self):
-        return "Basemodel"
+    def get_model_name(self) -> str:
+        return self._attr_model_name
 
-    def getModelType(self):
-        return ""
+    def get_manufacturer(self) -> str:
+        return self._attr_manufacturer
 
-    def getManufacturer(self):
-        return ""
+    def model_provides_datapoint(self, datapoint: GenvexNabtoDatapointKey) -> bool:
+        return datapoint in self.datapoints
 
-    def modelProvidesDatapoint(self, datapoint: GenvexNabtoDatapointKey) -> bool:
-        return datapoint in self._datapoints
+    def get_datapoints_for_read(self) -> List[GenvexNabtoDatapointKey]:
+        return [key for key, value in self._configs.items() if key in self.datapoints and value.get("read", False) == True]
 
-    def getDatapointsForRead(self) -> List[GenvexNabtoDatapointKey]:
-        return [key for key, value in self._configs.items() if key in self._datapoints and value.get("read", False) == True]
+    def model_provides_setpoint(self, datapoint: GenvexNabtoSetpointKey) -> bool:
+        return datapoint in self.setpoints
 
-    def modelProvidesSetpoint(self, datapoint: GenvexNabtoSetpointKey) -> bool:
-        return datapoint in self._setpoints
+    def get_setpoints_for_read(self) -> List[GenvexNabtoSetpointKey]:
+        return [key for key, value in self._configs.items() if key in self.setpoints and value.get("read", False) == True]
 
-    def getSetpointsForRead(self) -> List[GenvexNabtoSetpointKey]:
-        return [key for key, value in self._configs.items() if key in self._setpoints and value.get("read", False) == True]
-
-    def deviceHasQuirk(self, quirk, device) -> bool:
-        if quirk not in self._quirks:
-            return False
-        return device in self._quirks[quirk]
-
-    def addDeviceQuirks(self, deviceNumber, slaveDeviceNumber, slaveDeviceModel):
-        return
-
-    def getUnitOfMeasure(self, key:GenvexNabtoDatapointKey|GenvexNabtoSetpointKey) -> str:
-        if key in self._configs:
-            return self._configs[key].get("unit_of_measurement", None)
-        return None
+    def get_unit_of_measure(self, key:GenvexNabtoDatapointKey|GenvexNabtoSetpointKey) -> str|None:
+        if key in self._configs: return self._configs[key].get("unit_of_measurement", None)
+        return GenvexNabtoUnits.UNDEFINED
     
-    def setDefaultConfigs(self):
+    def set_default_configs(self) -> None:
         """Sets the point configurations to the standard setup, will not override already assigned records"""
     #     # only keep the points supported by the unit
     #     self._configs = {key: value for key, value in DEFAULT_CONFIGS.items() if key in self._setpoints or key in self._datapoints}
@@ -430,5 +412,5 @@ class GenvexNabtoBaseModel:
         # Update self._configs with missing items from DEFAULT_CONFIGS
         self._configs.update({
             key: value for key, value in DEFAULT_CONFIGS.items()
-            if key not in self._configs and (key in self._setpoints or key in self._datapoints)
+            if key not in self._configs and (key in self.setpoints or key in self.datapoints)
         })

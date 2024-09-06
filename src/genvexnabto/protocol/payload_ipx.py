@@ -1,17 +1,17 @@
-from .payload import GenvexPayload, GenvexPayloadType
+from .payload import GenvexPayload, Genvexpayload_type
 
 class GenvexPayloadIPX(GenvexPayload):
     
-    requiresChecksum = False
-    payloadType = GenvexPayloadType.U_IPX
+    requires_checksum = False
+    payload_type = Genvexpayload_type.U_IPX
 
     def __init__(self) -> None:
         pass
 
-    def buildPayload(self): 
+    def build_payload(self): 
         return b"".join([
-            self.payloadType,
-            self.payloadFlags,
+            self.payload_type,
+            self.payload_flags,
             b'\x00\x11', # Fixed payload length of 17
             b'\x00\x00\x00\x00', # NOT NEEDED Private Network IP
             b'\x00\x00', # NOT NEEDED Private Network Port

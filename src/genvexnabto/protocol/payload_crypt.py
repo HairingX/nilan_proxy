@@ -1,21 +1,21 @@
-from .payload import GenvexPayload, GenvexPayloadType
+from .payload import GenvexPayload, Genvexpayload_type
 
 class GenvexPayloadCrypt(GenvexPayload):
     
-    requiresChecksum = True
-    payloadType = GenvexPayloadType.U_CRYPT
-    data = b''
+    requires_checksum:bool = True
+    payload_type:bytes = Genvexpayload_type.U_CRYPT
+    data:bytes = b''
 
     def __init__(self) -> None:
         pass
 
-    def setData(self, data):
+    def set_data(self, data:bytes) -> None:
         self.data = data
 
-    def buildPayload(self): 
+    def build_payload(self) -> bytes:
         return b"".join([
-            self.payloadType,
-            self.payloadFlags,
+            self.payload_type,
+            self.payload_flags,
             (6+len(self.data)+3).to_bytes(2, 'big'), # Header + Crypto code + data length + padding and checksum to be inserted by packet builder.
             b'\x00\x0a', # Crypto code for the payload
             self.data,

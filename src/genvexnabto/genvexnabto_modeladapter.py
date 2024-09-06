@@ -1,194 +1,212 @@
 from typing import Dict, List
 from collections.abc import Callable
-from .models import ( GenvexNabtoBaseModel, GenvexNabtoOptima314, GenvexNabtoOptima312, GenvexNabtoOptima301, GenvexNabtoOptima270, GenvexNabtoOptima260, GenvexNabtoOptima251, GenvexNabtoOptima250, 
-                     GenvexNabtoCTS400, GenvexNabtoCTS602, GenvexNabtoCTS602Light,
-                     GenvexNabtoDatapoint, GenvexNabtoDatapointKey, GenvexNabtoSetpoint, GenvexNabtoSetpointKey )
+from .models import ( GenvexNabtoBaseModel, GenvexNabtoOptima314, GenvexNabtoOptima312, GenvexNabtoOptima301, GenvexNabtoOptima270, GenvexNabtoOptima260, GenvexNabtoOptima251, GenvexNabtoOptima250, GenvexNabtoCTS400, GenvexNabtoCTS602, GenvexNabtoCTS602Light,GenvexNabtoDatapoint, GenvexNabtoDatapointKey, GenvexNabtoSetpoint, GenvexNabtoSetpointKey )
 
 class GenvexNabtoModelAdapter:
-    _loadedModel: GenvexNabtoBaseModel = None
+    _loaded_model: GenvexNabtoBaseModel
+    _current_datapoint_list: Dict[int, List[GenvexNabtoDatapointKey]] = {}
+    _current_setpoint_list: Dict[int, List[GenvexNabtoSetpointKey]] = {}
+    _update_handlers: Dict[GenvexNabtoDatapointKey|GenvexNabtoSetpointKey, List[Callable[[float|int, float|int], None]]] = {}
+    """Callable[old_value, new_value]"""
 
-    _currentDatapointList: Dict[int, List[GenvexNabtoDatapointKey]] = {}
-    _currentSetpointList: Dict[int, List[GenvexNabtoSetpointKey]] = {}
+    values: Dict[GenvexNabtoDatapointKey|GenvexNabtoSetpointKey, float|int] = {}
 
-    _values = {}
-    _update_handlers: Dict[GenvexNabtoDatapointKey|GenvexNabtoSetpointKey, List[Callable[[int, int], None]]] = {}
-
-    def __init__(self, model, deviceNumber, slaveDeviceNumber, slaveDeviceModel):
-        modelToLoad = GenvexNabtoModelAdapter.translateToModel(model, deviceNumber, slaveDeviceNumber, slaveDeviceModel)
-        if modelToLoad == None:
-            raise "Invalid model"
-        self._loadedModel = modelToLoad()
-        self._loadedModel.addDeviceQuirks(deviceNumber, slaveDeviceNumber, slaveDeviceModel)
+    def __init__(self, model:int, device_number:int, slave_device_number:int, slave_device_model:int) -> None:
+        model_to_load = GenvexNabtoModelAdapter.translate_to_model(model, device_number, slave_device_number, slave_device_model)
+        if model_to_load == None:
+            raise Exception("Invalid model")
+        self._loaded_model = model_to_load(device_number, slave_device_number, slave_device_model)
             
-        self._currentDatapointList = {100: self._loadedModel.getDatapointsForRead()}
-        self._currentSetpointList = {200: self._loadedModel.getSetpointsForRead()}
+        self._current_datapoint_list = {100: self._loaded_model.get_datapoints_for_read()}
+        self._current_setpoint_list = {200: self._loaded_model.get_setpoints_for_read()}
 
-    def getModelName(self):
-        return self._loadedModel.getModelName()
+    def get_model_name(self) -> str:
+        return self._loaded_model.get_model_name()
     
-    def getManufacturer(self):
-        return self._loadedModel.getManufacturer()
+    def get_manufacturer(self) -> str:
+        return self._loaded_model.get_manufacturer()
 
     @staticmethod
-    def translateToModel(model, deviceNumber, slaveDeviceNumber, slaveDeviceModel) -> Callable:
+    def translate_to_model(model:int, device_number:int, slave_device_number:int, slave_device_model:int) -> Callable[[int,int,int], GenvexNabtoBaseModel]|None:
         if model == 2010:
-            if deviceNumber == 79265:
+            if device_number == 79265:
                 return GenvexNabtoOptima270
         if model == 2020:
-            if deviceNumber == 79280:
+            if device_number == 79280:
                 return GenvexNabtoOptima314
         if model == 1040:
-            if slaveDeviceNumber == 70810:
-                if slaveDeviceModel == 26:
+            if slave_device_number == 70810:
+                if slave_device_model == 26:
                     return GenvexNabtoOptima260
-            if slaveDeviceNumber == 79250:
-                if slaveDeviceModel == 9:
+            if slave_device_number == 79250:
+                if slave_device_model == 9:
                     return GenvexNabtoOptima312
-                if slaveDeviceModel == 8:
+                if slave_device_model == 8:
                     return GenvexNabtoOptima251
-                if slaveDeviceModel == 5:
+                if slave_device_model == 5:
                     return GenvexNabtoOptima301
-                if slaveDeviceModel == 1:
+                if slave_device_model == 1:
                     return GenvexNabtoOptima250
         if model == 1140 or model == 1141:
-            if slaveDeviceNumber == 72270:
-                if slaveDeviceModel == 1:
+            if slave_device_number == 72270:
+                if slave_device_model == 1:
                     return GenvexNabtoCTS400
-            if slaveDeviceNumber == 2763306:
-                if slaveDeviceModel == 2:
+            if slave_device_number == 2763306:
+                if slave_device_model == 2:
                     return GenvexNabtoCTS602Light
                 return GenvexNabtoCTS602
             
         return None
 
     @staticmethod
-    def providesModel(model, deviceNumber, slaveDeviceNumber, slaveDeviceModel):
-        if GenvexNabtoModelAdapter.translateToModel(model, deviceNumber, slaveDeviceNumber, slaveDeviceModel) is not None:
-            return True
-        return False
+    def provides_model(model:int, device_number:int, slave_device_number:int, slave_device_model:int) -> bool:
+        return GenvexNabtoModelAdapter.translate_to_model(model, device_number, slave_device_number, slave_device_model) is not None
     
-    def providesValue(self, key: GenvexNabtoSetpointKey|GenvexNabtoDatapointKey):
-        if self._loadedModel.modelProvidesDatapoint(key) or self._loadedModel.modelProvidesSetpoint(key):
-            return True 
-        return False
+    def provides_value(self, key: GenvexNabtoDatapointKey|GenvexNabtoSetpointKey) -> bool:
+        if isinstance(key, GenvexNabtoDatapointKey): return self._loaded_model.model_provides_datapoint(key) 
+        return self._loaded_model.model_provides_setpoint(key)
 
-    def hasValue(self, key: GenvexNabtoSetpointKey|GenvexNabtoDatapointKey) -> bool:
-        return key in self._values
+    def has_value(self, key: GenvexNabtoDatapointKey|GenvexNabtoSetpointKey) -> bool:
+        return key in self.values
     
-    def getValue(self, key: GenvexNabtoSetpointKey|GenvexNabtoDatapointKey):
-        return self._values.get(key)
+    def get_value(self, key: GenvexNabtoDatapointKey|GenvexNabtoSetpointKey) -> float|int|None:
+        return self.values.get(key)
     
-    def getMinValue(self, key: GenvexNabtoSetpointKey):
-        if self._loadedModel.modelProvidesSetpoint(key): 
-            return self.parseValue(fromModbus=True, point=self._loadedModel._setpoints[key], value=self._loadedModel._setpoints[key]['min'])
+    def get_min_value(self, key: GenvexNabtoSetpointKey) -> float|int|None:
+        if self._loaded_model.model_provides_setpoint(key): 
+            return self.parse_from_modbus_value(point=self._loaded_model.setpoints[key], value=self._loaded_model.setpoints[key]['min'])
         return None
     
-    def getMaxValue(self, key: GenvexNabtoSetpointKey):
-        if self._loadedModel.modelProvidesSetpoint(key): 
-            return self.parseValue(fromModbus=True, point=self._loadedModel._setpoints[key], value=self._loadedModel._setpoints[key]['max'])
+    def get_max_value(self, key: GenvexNabtoSetpointKey) -> float|int|None:
+        if self._loaded_model.model_provides_setpoint(key): 
+            return self.parse_from_modbus_value(point=self._loaded_model.setpoints[key], value=self._loaded_model.setpoints[key]['max'])
         return None
     
-    def getUnitOfMeasure(self, key: GenvexNabtoSetpointKey|GenvexNabtoDatapointKey):
-        return self._loadedModel.getUnitOfMeasure(key)
+    def get_unit_of_measure(self, key: GenvexNabtoDatapointKey|GenvexNabtoSetpointKey) -> str|None:
+        return self._loaded_model.get_unit_of_measure(key)
     
-    def getSetpointStep(self, key: GenvexNabtoSetpointKey):
-        if self._loadedModel.modelProvidesSetpoint(key):
-            if "step" in self._loadedModel._setpoints[key]:             
-                return self._loadedModel._setpoints[key]['step'] / self._loadedModel._setpoints[key]['divider']
+    def get_setpoint(self, key:GenvexNabtoSetpointKey) -> GenvexNabtoSetpoint|None:
+        if not self._loaded_model.model_provides_setpoint(key): return None
+        return self._loaded_model.setpoints[key]
+    
+    def get_setpoint_step(self, key: GenvexNabtoSetpointKey) -> float|int:
+        if self._loaded_model.model_provides_setpoint(key):
+            if 'step' in self._loaded_model.setpoints[key]:
+                divider = self.get_point_divider(self._loaded_model.setpoints[key])    
+                step = self.get_point_step(self._loaded_model.setpoints[key]) 
+                if divider > 1: return step / divider
+                return step
         return 1
     
-    def registerUpdateHandler(self, key: GenvexNabtoSetpointKey|GenvexNabtoDatapointKey, updateMethod: Callable[[int, int], None]):
+    def register_update_handler(self, key: GenvexNabtoDatapointKey|GenvexNabtoSetpointKey, update_method: Callable[[float|int, float|int], None]):
         if key not in self._update_handlers:
             self._update_handlers[key] = []
-        self._update_handlers[key].append(updateMethod)
+        self._update_handlers[key].append(update_method)
 
-    def notifyAllUpdateHandlers(self):
+    def notify_all_update_handlers(self) -> None:
         for key in self._update_handlers:
             for method in self._update_handlers[key]:
-                method(-1, self._values[key])
+                method(-1, self.values[key])
 
-    def getDatapointRequestList(self, sequenceId):
-        if sequenceId not in self._currentDatapointList:
-            return None
-        returnList = []
-        for key in self._currentDatapointList[sequenceId]:
-            returnList.append(self._loadedModel._datapoints[key])
-        return returnList
+    def getDatapointRequestList(self, sequence_id:int) -> List[GenvexNabtoDatapoint]|None:
+        if sequence_id not in self._current_datapoint_list: return None
+        return_list:List[GenvexNabtoDatapoint] = []
+        for key in self._current_datapoint_list[sequence_id]:
+            return_list.append(self._loaded_model.datapoints[key])
+        return return_list
     
-    def getSetpointRequestList(self, sequenceId):
-        if sequenceId not in self._currentSetpointList:
-            return None
-        returnList = []
-        for key in self._currentSetpointList[sequenceId]:
-            returnList.append(self._loadedModel._setpoints[key])
-        return returnList
+    def get_setpoint_request_list(self, sequence_id:int) -> List[GenvexNabtoSetpoint]|None:
+        if sequence_id not in self._current_setpoint_list: return None
+        return_list:List[GenvexNabtoSetpoint] = []
+        for key in self._current_setpoint_list[sequence_id]:
+            return_list.append(self._loaded_model.setpoints[key])
+        return return_list
     
-    def parseDataResponse(self, responseSeq, responsePayload):
-        print(f"Got dataresponse with sequence id: {responseSeq}")
-        if responseSeq in self._currentDatapointList:
+    def parse_data_response(self, response_seq:int, response_payload:bytes) -> None:
+        print(f"Got dataresponse with sequence id: {response_seq}")
+        if response_seq in self._current_datapoint_list:
             print(f"Is a datapoint response")
-            return self.parseDatapointResponse(responseSeq, responsePayload)
-        if responseSeq in self._currentSetpointList:
+            self.parse_datapoint_response(response_seq, response_payload)
+        if response_seq in self._current_setpoint_list:
             print(f"Is a setpoint response")
-            return self.parseSetpointResponse(responseSeq, responsePayload)
+            self.parse_setpoint_response(response_seq, response_payload)
 
-    def parseDatapointResponse(self, responseSeq, responsePayload):
-        if responseSeq not in self._currentDatapointList:
-            return None
-        decodingKeys = self._currentDatapointList[responseSeq]
-        print(decodingKeys)
-        responseLength = int.from_bytes(responsePayload[0:2])
-        for position in range(responseLength):
-            valueKey = decodingKeys[position]
-            payloadSlice = responsePayload[2+position*2:4+position*2]
-            oldValue = -1
-            if valueKey in self._values:
-                oldValue = self._values[valueKey]
-            point = self._loadedModel._datapoints[valueKey]
-            signed = False if "signed" not in point else point["signed"]
-            self._values[valueKey] = self.parseValue(fromModbus=True, point=point, value=int.from_bytes(payloadSlice, 'big', signed=signed))
-            if oldValue != self._values[valueKey]:
+    def parse_datapoint_response(self, response_seq:int, response_payload:bytes) -> None:
+        if response_seq not in self._current_datapoint_list: return None
+        decoding_keys = self._current_datapoint_list[response_seq]
+        print(decoding_keys)
+        response_length = int.from_bytes(response_payload[0:2])
+        for position in range(response_length):
+            valueKey = decoding_keys[position]
+            payload_slice = response_payload[2+position*2:4+position*2]
+            old_value = -1
+            if valueKey in self.values:
+                old_value = self.values[valueKey]
+            point = self._loaded_model.datapoints[valueKey]
+            signed = False if 'signed' not in point else point['signed']
+            self.values[valueKey] = self.parse_from_modbus_value(point=point, value=int.from_bytes(payload_slice, 'big', signed=signed))
+            if old_value != self.values[valueKey]:
                 if valueKey in self._update_handlers:
                     for method in self._update_handlers[valueKey]:
-                        method(oldValue, self._values[valueKey])
+                        method(old_value, self.values[valueKey])
      
-     
-    def parseSetpointResponse(self, responseSeq, responsePayload):
-        if responseSeq not in self._currentSetpointList:
-            return None
-        decodingKeys = self._currentSetpointList[responseSeq]
-        responseLength = int.from_bytes(responsePayload[1:3])
-        for position in range(responseLength):
-            valueKey = decodingKeys[position]
-            payloadSlice = responsePayload[3+position*2:5+position*2]
-            oldValue = -1
-            if valueKey in self._values:
-                oldValue = self._values[valueKey]
-            point = self._loadedModel._setpoints[valueKey]
-            signed = False if "signed" not in point else point["signed"]
-            self._values[valueKey] = self.parseValue(fromModbus=True, point=point, value=int.from_bytes(payloadSlice, 'big', signed=signed))
-            if oldValue != self._values[valueKey]:
+    def parse_setpoint_response(self, response_seq:int, response_payload:bytes) -> None:
+        if response_seq not in self._current_setpoint_list: return None
+        decoding_keys = self._current_setpoint_list[response_seq]
+        response_length = int.from_bytes(response_payload[1:3])
+        for position in range(response_length):
+            valueKey = decoding_keys[position]
+            payload_slice = response_payload[3+position*2:5+position*2]
+            old_value = -1
+            if valueKey in self.values:
+                old_value = self.values[valueKey]
+            point = self._loaded_model.setpoints[valueKey]
+            signed = self.get_point_signed(point)
+            self.values[valueKey] = self.parse_from_modbus_value(point=point, value=int.from_bytes(payload_slice, 'big', signed=signed))
+            if old_value != self.values[valueKey]:
                 if valueKey in self._update_handlers:
                     for method in self._update_handlers[valueKey]:
-                        method(oldValue, self._values[valueKey])
+                        method(old_value, self.values[valueKey])
 
+    def parseToModbusValue(self, point:GenvexNabtoDatapoint|GenvexNabtoSetpoint, value: float|int) -> int:
+        divider = self.get_point_divider(point)
+        invert_from = self.get_point_invertFrom(point)
+        offset = self.get_point_offset(point)
+        new_value:float|int = value
+        if divider > 1: new_value *= divider
+        if offset != 0: new_value -= offset 
+        if invert_from is not None: new_value = invert_from - new_value
+        return int(new_value) #cast to int, modbus writes only accept an int
 
-    def parseValue(self, fromModbus:bool, point:GenvexNabtoDatapoint|GenvexNabtoSetpoint, value):
-        if value is None: return None
-        invert_from = None
-        divider = 1
-        offset = None
-        if "invert_from" in point: invert_from = point["invert_from"]
-        if "divider" in point: divider = point["divider"]
-        if "offset" in point: offset = point["offset"]
-        # divider = 1 if "divider" not in point else point['divider']
-        # offset = None if "offset" not in point else point['offset']
-        if fromModbus == True:
-            if invert_from is not None: value = invert_from - value
-            if offset is not None: value += offset 
-            if divider > 1: value /= divider
-        else: 
-            if divider > 1: value *= divider
-            if offset is not None: value -= offset 
-            if invert_from is not None: value = invert_from - value
-        return value
+    def parse_from_modbus_value(self, point:GenvexNabtoDatapoint|GenvexNabtoSetpoint, value: int) -> float|int:
+        divider = self.get_point_divider(point)
+        invert_from = self.get_point_invertFrom(point)
+        offset = self.get_point_offset(point)
+        new_value:float|int = value
+        if invert_from is not None: new_value = invert_from - value
+        if offset != 0: new_value += offset 
+        if divider > 1: new_value /= divider
+        return new_value
+
+    def get_point_divider(self, point:GenvexNabtoDatapoint|GenvexNabtoSetpoint) -> int: 
+        return 1 if 'divider' not in point else point['divider']
+    def get_point_invertFrom(self, point:GenvexNabtoDatapoint|GenvexNabtoSetpoint) -> int|None: 
+        return None if 'invert_from' not in point else point['invert_from']
+    def get_point_offset(self, point:GenvexNabtoDatapoint|GenvexNabtoSetpoint) -> int: 
+        return 0 if 'offset' not in point else point['offset']
+    def get_point_read_address(self, point:GenvexNabtoDatapoint) -> int: 
+        return point['read_address']
+    def get_point_read_obj(self, point:GenvexNabtoDatapoint|GenvexNabtoSetpoint) -> int: 
+        return 0 if 'read_obj' not in point else point['read_obj']
+    def get_point_write_address(self, point:GenvexNabtoSetpoint) -> int: 
+        return point['write_address']
+    def get_point_write_obj(self, point:GenvexNabtoSetpoint) -> int: 
+        return 0 if 'write_obj' not in point else point['write_obj']
+    def get_point_signed(self, point:GenvexNabtoDatapoint|GenvexNabtoSetpoint) -> bool: 
+        return point['signed']
+    def get_point_step(self, point:GenvexNabtoSetpoint) -> int: 
+        return 1 if 'step' not in point else point['step']
+    def get_point_max(self, point:GenvexNabtoSetpoint) -> int: 
+        return point['max']
+    def get_point_min(self, point:GenvexNabtoSetpoint) -> int: 
+        return point['min']

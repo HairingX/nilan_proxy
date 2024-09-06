@@ -1,323 +1,348 @@
 import asyncio
 from collections.abc import Callable
+from enum import Enum
 from random import randint
 import socket
 import threading
 import time
+from typing import Dict, List, Sequence
+import logging
 
-from .models import ( GenvexNabtoDatapointKey, GenvexNabtoSetpointKey )
+from genvexnabto.protocol.command_builder import GenvexNabtoCommandBuilderWriteArgs
+
+
+from .models import ( GenvexNabtoDatapointKey, GenvexNabtoSetpointKey, GenvexNabtoDatapoint, GenvexNabtoSetpoint)
 from .genvexnabto_modeladapter import GenvexNabtoModelAdapter
-from .protocol import (GenvexPacketType, GenvexDiscovery, GenvexPayloadIPX, GenvexPayloadCrypt, 
-                       GenvexPayloadCP_ID,  GenvexPacket, GenvexPacketKeepAlive, GenvexCommandDatapointReadList, 
-                       GenvexCommandSetpointReadList, GenvexCommandPing, GenvexCommandSetpointWriteList)
+from .protocol import (GenvexPacketType,  GenvexPayloadIPX, GenvexPayloadCrypt, GenvexPayloadCP_ID,  GenvexPacketBuilder, GenvexNabtoCommandBuilder, GenvexNabtoCommandBuilderReadArgs)
 
 from .const import ( SOCKET_TIMEOUT, SOCKET_MAXSIZE, DATAPOINT_UPDATEINTERVAL, SETPOINT_UPDATEINTERVAL, SECONDS_UNTILRECONNECT, DISCOVERY_PORT)
 
-class GenvexNabtoConnectionErrorType:
+_LOGGER = logging.getLogger(__name__)
+
+class GenvexNabtoConnectionErrorType(Enum):
     TIMEOUT = "timeout"
     AUTHENTICATION_ERROR = "authentication_error"
     UNSUPPORTED_MODEL = "unsupported_model"
 
 class GenvexNabto():
-    _authorized_email = ""
+    _client_id:bytes = randint(0,0xffffffff).to_bytes(4, 'big') # Our client ID can be anything.
+    _server_id:bytes = b'\x00\x00\x00\x00' # This is our ID optained from the uNabto service on device.
 
-    _client_id = randint(0,0xffffffff).to_bytes(4, 'big') # Our client ID can be anything.
-    _server_id = b'\x00\x00\x00\x00' # This is our ID optained from the uNabto service on device.
+    _authorized_email:str = ""
+    _device_id:str|None = None
+    _device_ip:str|None = None
+    _device_model:int|None = None
+    _device_number:int|None = None
+    _device_port:int = 5570
+    _slave_device_model:int|None = None
+    _slave_device_number:int|None = None
 
-    _device_id = None
-    _device_ip = None
-    _device_port = 5570
-    _device_model = None
-    _device_number = None
-    _slavedevice_number = None
-    _slavedevice_model = None
+    _model_adapter:GenvexNabtoModelAdapter|None = None
 
-    _model_adapter = None
-
-    _is_connected = False
-    _connection_error = False
-    _last_response = 0
-    _last_dataupdate = 0
-    _last_setpointupdate = 0
+    _is_connected:bool = False
+    _connection_error:GenvexNabtoConnectionErrorType|None = None
+    _last_response:float = 0
+    _last_dataupdate:float = 0
+    _last_setpointupdate:float = 0
 
     _socket = None
     _listen_thread = None
     _listen_thread_open = False
-
-    _discovered_devices = {}
-
-    def __init__(self, _authorized_email = "") -> None:
-        self._authorized_email = _authorized_email
-        self.startListening()
+    _discovered_devices:Dict[str, tuple[str,int]] =  {}
+    """tuple[int,int] = RefAddress from socket aka tuple(host, port)"""
+    
+    def __init__(self, authorized_email:str = "") -> None:
+        self._authorized_email = authorized_email
+        self.start_listening()
         return    
     
-    def setDevice(self, device_id, device_ip, device_port):
+    def get_email(self): return self._authorized_email
+    def set_email(self, email:str): self._authorized_email = email
+    """set the email the system was configured with through the official application/app"""
+    
+    def is_connected(self): return self._is_connected
+    def get_connection_error(self): return self._connection_error
+    
+    def get_device_id(self): return self._device_id
+    def get_device_ip(self): return self._device_ip
+    def get_device_model(self): return self._device_model
+    def get_device_number(self): return self._device_number
+    def get_device_port(self): return self._device_port
+    def get_slave_device_model(self): return self._slave_device_model
+    def get_slave_device_number(self): return self._slave_device_number
+    def get_discovered_devices(self): return self._discovered_devices
+    def get_loaded_model_name(self): return None if self._model_adapter is None else self._model_adapter.get_model_name()
+    
+    def set_device(self, device_id:str, device_ip:str|None=None, device_port:int|None=None) -> None:
         self._device_id = device_id
-        if device_ip is None:
-            self.getDeviceIP()
+        if device_ip is None or device_port is None:
+            self.retrieve_device_ip()
         else:
             self._device_ip = device_ip
             self._device_port = device_port
             self._discovered_devices[self._device_id] = (device_ip, device_port)
-          
-    def openSocket(self):
-        if self._socket is not None:
-            return
+        
+    def start_listening(self) -> bool:
+        if self._listen_thread_open: return False
+        if self._socket == None: 
+            self.open_socket()
+        self._listen_thread = threading.Thread(target=self._receive_thread)
+        self._listen_thread_open = True
+        self._listen_thread.start()
+        return True
+  
+    def open_socket(self) -> None:
+        if self._socket is not None: return
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)  # UDP
         self._socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1) # Allows for sending broadcasts
         self._socket.settimeout(SOCKET_TIMEOUT)
         self._socket.bind(("", 0))
 
-    def startListening(self):
-        if self._listen_thread_open:
-            return False
-        if self._socket == None:
-            self.openSocket()
-        self._listen_thread = threading.Thread(target=self.receiveThread)
-        self._listen_thread_open = True
-        self._listen_thread.start()
-
-    def stopListening(self):
+    def stop_listening(self) -> None:
         self._listen_thread_open = False
 
-    def closeSocket(self):
+    def close_socket(self) -> None:
+        if self._socket is None: return
         self._socket.close()
         self._socket = None
 
     # Broadcasts a discovery packet. Any device listening should respond.
-    def sendDiscovery(self, specificDevice = None): 
-        if self._socket == None:
-            return
-        self._socket.sendto(GenvexDiscovery.build_packet(specificDevice), ("255.255.255.255", DISCOVERY_PORT))
+    def send_discovery(self, specificDevice:str|None = None) -> None: 
+        if self._socket == None: return
+        self._socket.sendto(GenvexPacketBuilder.build_discovery_packet(specificDevice), ("255.255.255.255", DISCOVERY_PORT))
 
-    async def discoverDevices(self, clear=False):
-        if clear:
-            self._discovered_devices = {}
-        self.sendDiscovery()
+    async def discover_devices(self, clear:bool=False) -> Dict[str, tuple[str, int]]:
+        if clear: self._discovered_devices = {}
+        self.send_discovery()
         await asyncio.sleep(0.5) # Allow for all devices to reply
         return self._discovered_devices
 
-    def getDeviceIP(self):
+    def retrieve_device_ip(self) -> None:
         # Check if we already know the IP from earlier
         if self._device_id in self._discovered_devices:
             self._device_ip = self._discovered_devices[self._device_id][0]
             self._device_port = self._discovered_devices[self._device_id][1]
         else:
-            self.sendDiscovery(self._device_id)
+            self.send_discovery(self._device_id)
 
-    def connectToDevice(self):
+    def connect_to_device(self) -> bool:
         if self._socket == None:
             return False
         if self._listen_thread_open == False:
             return False
-        self._connection_error = False
-        IPXPayload = GenvexPayloadIPX()
-        CP_IDPayload = GenvexPayloadCP_ID()
-        CP_IDPayload.setEmail(self._authorized_email)
-        self._socket.sendto(GenvexPacket.build_packet(self._client_id, self._server_id, GenvexPacketType.U_CONNECT, 0, [IPXPayload, CP_IDPayload]), (self._device_ip, self._device_port))
+        self._connection_error = None
+        ipx_payload = GenvexPayloadIPX()
+        cp_id_payload = GenvexPayloadCP_ID()
+        cp_id_payload.set_email(self._authorized_email)
+        self._socket.sendto(GenvexPacketBuilder.build_packet(self._client_id, self._server_id, GenvexPacketType.U_CONNECT, 0, [ipx_payload, cp_id_payload]), (self._device_ip, self._device_port))
+        return True
 
-    async def waitForConnection(self):
+    async def wait_for_connection(self) -> None:
         """Wait for connection to be tried"""
-        connectionTimeout = time.time() + 3
-        while self._connection_error is False and self._is_connected is False:
-            if time.time() > connectionTimeout:
+        connection_timeout = time.time() + 3
+        while self._connection_error is None and self._is_connected is False:
+            if time.time() > connection_timeout:
                 self._connection_error = GenvexNabtoConnectionErrorType.TIMEOUT                
-                connectionTimeout = None
             await asyncio.sleep(0.2)
 
-    async def waitForDiscovery(self):
+    async def wait_for_discovery(self) -> bool:
         """Wait for discovery of ip to be done"""
-        discoveryTimeout = time.time() + 3
+        discovery_timeout = time.time() + 3
         while True:
             if self._device_id in self._discovered_devices and self._device_ip is not None:
                 return True
-            if time.time() > discoveryTimeout:
+            if time.time() > discovery_timeout:
                 return False
             await asyncio.sleep(0.2)
 
-    async def waitForData(self):
+    async def wait_for_data(self) -> bool:
         """Wait for data to be available"""
-        dataTimeout = time.time() + 12
+        data_timeout = time.time() + 12
         while True:
             if self._model_adapter is not None:
-                if self._model_adapter.hasValue(GenvexNabtoDatapointKey.TEMP_SUPPLY) and self._model_adapter.hasValue(GenvexNabtoSetpointKey.TEMP_TARGET):
+                if self._model_adapter.has_value(GenvexNabtoDatapointKey.TEMP_SUPPLY) and self._model_adapter.has_value(GenvexNabtoSetpointKey.TEMP_TARGET):
                     return True
-            if time.time() > dataTimeout:
+            if time.time() > data_timeout:
                 return False
             await asyncio.sleep(0.2)
 
-    def providesValue(self, key: GenvexNabtoDatapointKey|GenvexNabtoSetpointKey) -> bool:
-        if self._model_adapter is None:
-            return False
-        return self._model_adapter.providesValue(key)
+    def provides_value(self, key: GenvexNabtoDatapointKey|GenvexNabtoSetpointKey) -> bool:
+        if self._model_adapter is None: return False
+        return self._model_adapter.provides_value(key)
 
-    def hasValue(self, key: GenvexNabtoDatapointKey|GenvexNabtoSetpointKey) -> bool:
-        if self._model_adapter is None or key is None:
-            return False
-        return self._model_adapter.hasValue(key)
+    def has_value(self, key: GenvexNabtoDatapointKey|GenvexNabtoSetpointKey) -> bool:
+        if self._model_adapter is None: return False
+        return self._model_adapter.has_value(key)
     
-    def getValue(self, key: GenvexNabtoDatapointKey|GenvexNabtoSetpointKey):
-        if self._model_adapter is None:
-            return None
-        return self._model_adapter.getValue(key) 
+    def get_value(self, key: GenvexNabtoDatapointKey|GenvexNabtoSetpointKey) -> float|int|None:
+        if self._model_adapter is None: return None
+        return self._model_adapter.get_value(key) 
     
-    def getSetpointMinValue(self, key: GenvexNabtoDatapointKey|GenvexNabtoSetpointKey):
-        if self._model_adapter is None:
-            return None
-        return self._model_adapter.getMinValue(key)
+    def get_setpoint_min_value(self, key: GenvexNabtoSetpointKey) -> float|int|None:
+        if self._model_adapter is None: return None
+        return self._model_adapter.get_min_value(key)
     
-    def getSetpointMaxValue(self, key: GenvexNabtoDatapointKey|GenvexNabtoSetpointKey):
-        if self._model_adapter is None:
-            return None
-        return self._model_adapter.getMaxValue(key)
+    def get_setpoint_max_value(self, key: GenvexNabtoSetpointKey) -> float|int|None:
+        if self._model_adapter is None: return None
+        return self._model_adapter.get_max_value(key)
     
-    def getUnitOfMeasure(self, key: GenvexNabtoDatapointKey|GenvexNabtoSetpointKey):
-        if self._model_adapter is None:
-            return None
-        return self._model_adapter.getUnitOfMeasure(key)
+    def get_unit_of_measure(self, key: GenvexNabtoDatapointKey|GenvexNabtoSetpointKey) -> str|None:
+        if self._model_adapter is None: return None
+        return self._model_adapter.get_unit_of_measure(key)
     
-    def getSetpointStep(self, key: GenvexNabtoDatapointKey|GenvexNabtoSetpointKey):
-        if self._model_adapter is None:
-            return None
-        return self._model_adapter.getSetpointStep(key)
+    def get_setpoint_step(self, key: GenvexNabtoSetpointKey) -> float|int:
+        if self._model_adapter is None: return 1
+        return self._model_adapter.get_setpoint_step(key)
     
-    def registerUpdateHandler(self, key: GenvexNabtoSetpointKey|GenvexNabtoDatapointKey, updateMethod: Callable[[int, int], None]):
+    def notify_all_update_handlers(self) -> None:
         if self._model_adapter is not None:
-            self._model_adapter.registerUpdateHandler(key, updateMethod)
-
-    def notifyAllUpdateHandlers(self):
+            self._model_adapter.notify_all_update_handlers()
+    
+    def register_update_handler(self, key: GenvexNabtoDatapointKey|GenvexNabtoSetpointKey, updateMethod: Callable[[float|int, float|int], None]) -> None:
         if self._model_adapter is not None:
-            self._model_adapter.notifyAllUpdateHandlers()
+            self._model_adapter.register_update_handler(key, updateMethod)
 
-    def processPingPayload(self, payload):
+    def set_setpoint(self, setpointKey: GenvexNabtoSetpointKey, new_value:float|int) -> bool:
+        if self._socket is None: return False
+        if self._model_adapter is None: return False
+        setpoint = self._model_adapter.get_setpoint(setpointKey)
+        if setpoint is None: return False
+        new_value = self._model_adapter.parseToModbusValue(point=setpoint, value=new_value)
+        if new_value < self._model_adapter.get_point_min(setpoint) or new_value > self._model_adapter.get_point_max(setpoint):
+            return False
+        Payload = GenvexPayloadCrypt()
+        Payload.set_data(GenvexNabtoCommandBuilder.build_setpoint_write_command(self._map_points_to_write_args([setpoint], new_value)))
+        self._socket.sendto(GenvexPacketBuilder().build_packet(self._client_id, self._server_id, GenvexPacketType.DATA, 3, [Payload]), (self._device_ip, self._device_port))
+        self._last_dataupdate = time.time() - DATAPOINT_UPDATEINTERVAL + 1 # Ensure updates are check for next thread loop.
+        self._last_setpointupdate = time.time() - SETPOINT_UPDATEINTERVAL + 1
+        return True
+
+    def _process_ping_payload(self, payload:bytes) -> None:
         self._device_number = int.from_bytes(payload[4:8], 'big')
         self._device_model = int.from_bytes(payload[8:12], 'big')
-        self._slavedevice_number = int.from_bytes(payload[16:20], 'big')
-        self._slavedevice_model = int.from_bytes(payload[20:24], 'big')
-        print(f"Got model: {self._device_model} with device number: {self._device_number}, slavedevice number: {self._slavedevice_number} and slavedevice model: {self._slavedevice_model}")
-        if GenvexNabtoModelAdapter.providesModel(self._device_model, self._device_number, self._slavedevice_number, self._slavedevice_model):
+        self._slave_device_number = int.from_bytes(payload[16:20], 'big')
+        self._slave_device_model = int.from_bytes(payload[20:24], 'big')
+        _LOGGER.debug(f"Got model: {self._device_model} with device number: {self._device_number}, slavedevice number: {self._slave_device_number} and slavedevice model: {self._slave_device_model}")
+        if GenvexNabtoModelAdapter.provides_model(self._device_model, self._device_number, self._slave_device_number, self._slave_device_model):
             self._is_connected = True
-            print(f"Going to load model")
-            self._model_adapter = GenvexNabtoModelAdapter(self._device_model, self._device_number, self._slavedevice_number, self._slavedevice_model)
-            print(f"Loaded model for {self._model_adapter.getModelName()}")
-            self.sendDataStateRequest(100)
-            self.sendSetpointStateRequest(200)
+            _LOGGER.debug(f"Going to load model")
+            self._model_adapter = GenvexNabtoModelAdapter(self._device_model, self._device_number, self._slave_device_number, self._slave_device_model)
+            _LOGGER.debug(f"Loaded model for {self._model_adapter.get_model_name()}")
+            self._send_data_state_request(100)
+            self._send_setpoint_state_request(200)
         else:
-            print(f"No model available")
+            _LOGGER.error(f"No model available")
             self._connection_error = GenvexNabtoConnectionErrorType.UNSUPPORTED_MODEL
 
-    def processReceivedMessage(self, message, address):
+    def _process_received_message(self, message:bytes, address:tuple[str,int]) -> None:
         if message[0:4] == b'\x00\x80\x00\x01': # This might be a discovery packet response!
-            discoveryResponse = message[19:len(message)]
-            deviceIdLength = 0
-            for b in discoveryResponse: # Loop until first string terminator
+            discovery_response = message[19:len(message)]
+            device_id_length = 0
+            for b in discovery_response: # Loop until first string terminator
                 if b == 0x00:
                     break
-                deviceIdLength += 1
-            deviceId = discoveryResponse[0: deviceIdLength].decode("ascii")
-            if "remote.lscontrol.dk" in deviceId:
+                device_id_length += 1
+            device_id = discovery_response[0: device_id_length].decode("ascii")
+            if "remote.lscontrol.dk" in device_id:
                 # This is a valid reponse from a GenvexConnect device!
                 # Add the device Id and IP to our list if not seen before.
-                if deviceId not in self._discovered_devices:
-                    self._discovered_devices[deviceId] = address
-            if deviceId == self._device_id:
+                if device_id not in self._discovered_devices:
+                    self._discovered_devices[device_id] = address
+            if device_id == self._device_id:
                 self._device_ip = address[0]
             return
         if message[0:4] != self._client_id: # Not a packet intented for us
             return
         self._last_response = time.time()
-        packetType = message[8].to_bytes(1, 'big')
-        if (packetType == GenvexPacketType.U_CONNECT):
-            print("U_CONNECT response packet")
+        packet_type = message[8].to_bytes(1, 'big')
+        if (packet_type == GenvexPacketType.U_CONNECT.value):
+            _LOGGER.debug("U_CONNECT response packet")
             if (message[20:24] == b'\x00\x00\x00\x01'):
                 self._server_id = message[24:28]
-                print('Connected, pinging to get model number')
+                _LOGGER.debug('Connected, pinging to get model number')
                 if not self._is_connected:
-                    self.sendPing()
+                    self._send_ping()
             else:
-                print("Received unsucessfull response")
+                _LOGGER.error("Received unsucessfull response")
                 self._connection_error = GenvexNabtoConnectionErrorType.AUTHENTICATION_ERROR
 
-        elif (packetType == GenvexPacketType.DATA): # 0x16
-            print("Data packet", message[16])
+        elif (packet_type == GenvexPacketType.DATA.value): # 0x16
+            _LOGGER.debug("Data packet", message[16])
             # We only care about data packets with crypt payload. 
             if message[16] == 54: # x36
-                print("Packet with crypt payload!")
+                _LOGGER.debug("Packet with crypt payload!")
                 length = int.from_bytes(message[18:20], 'big')
                 payload = message[22:20+length]
-                print(''.join(r'\x'+hex(letter)[2:] for letter in payload))
-                sequenceId = int.from_bytes(message[12:14], 'big')
-                if sequenceId == 50: #50
-                    self.processPingPayload(payload)
+                _LOGGER.debug(''.join(r'\x'+hex(letter)[2:] for letter in payload))
+                sequence_id = int.from_bytes(message[12:14], 'big')
+                if sequence_id == 50: #50
+                    self._process_ping_payload(payload)
                 else:
                     if self._model_adapter is not None:
-                        self._model_adapter.parseDataResponse(sequenceId, payload)
-                    if sequenceId == 100:                        
+                        self._model_adapter.parse_data_response(sequence_id, payload)
+                    if sequence_id == 100:                        
                         self._last_dataupdate = time.time()
-                    if sequenceId == 200:                        
+                    if sequence_id == 200:                        
                         self._last_setpointupdate = time.time()
             else:
-                print("Not an interresting data packet.")
+                _LOGGER.debug("Not an interresting data packet.")
         else:
-            print("Unknown packet type. Ignoring")
+            _LOGGER.debug("Unknown packet type. Ignoring")
 
-    def sendPing(self):
-        PingCmd = GenvexCommandPing()
+    def _send_ping(self) -> None:
+        if self._socket is None: return
+        payload = GenvexPayloadCrypt()
+        payload.set_data(GenvexNabtoCommandBuilder.build_ping_command())
+        self._socket.sendto(GenvexPacketBuilder().build_packet(self._client_id, self._server_id, GenvexPacketType.DATA, 50, [payload]), (self._device_ip, self._device_port))
+
+    def _send_data_state_request(self, sequence_id:int) -> None:
+        if self._socket is None: return
+        if self._model_adapter is None: return
+        datalist = self._model_adapter.getDatapointRequestList(sequence_id)
+        if datalist is None: return
         Payload = GenvexPayloadCrypt()
-        Payload.setData(PingCmd.buildCommand())
-        self._socket.sendto(GenvexPacket().build_packet(self._client_id, self._server_id, GenvexPacketType.DATA, 50, [Payload]), (self._device_ip, self._device_port))
-
-    def sendDataStateRequest(self, sequenceId):
-        if self._model_adapter is None:
-            return
-        datalist = self._model_adapter.getDatapointRequestList(sequenceId)
-        if datalist is None:
-            return
+        Payload.set_data(GenvexNabtoCommandBuilder.build_datapoint_read_command(self._map_points_to_read_args(datalist)))
+        self._socket.sendto(GenvexPacketBuilder().build_packet(self._client_id, self._server_id, GenvexPacketType.DATA, sequence_id, [Payload]), (self._device_ip, self._device_port))
+    
+    def _send_setpoint_state_request(self, sequence_id:int) -> None:
+        if self._socket is None: return
+        if self._model_adapter is None: return
         Payload = GenvexPayloadCrypt()
-        Payload.setData(GenvexCommandDatapointReadList.buildCommand(datalist))
-        self._socket.sendto(GenvexPacket().build_packet(self._client_id, self._server_id, GenvexPacketType.DATA, sequenceId, [Payload]), (self._device_ip, self._device_port))
+        datalist = self._model_adapter.get_setpoint_request_list(sequence_id)
+        if datalist is None: return
+        Payload.set_data(GenvexNabtoCommandBuilder.build_setpoint_read_command(self._map_points_to_read_args(datalist)))
+        self._socket.sendto(GenvexPacketBuilder().build_packet(self._client_id, self._server_id, GenvexPacketType.DATA, sequence_id, [Payload]), (self._device_ip, self._device_port))
 
-    def sendSetpointStateRequest(self, sequenceId):
-        Payload = GenvexPayloadCrypt()
-        datalist = self._model_adapter.getSetpointRequestList(sequenceId)
-        if datalist is None:
-            return
-        Payload.setData(GenvexCommandSetpointReadList.buildCommand(datalist))
-        self._socket.sendto(GenvexPacket().build_packet(self._client_id, self._server_id, GenvexPacketType.DATA, sequenceId, [Payload]), (self._device_ip, self._device_port))
-
-    def setSetpoint(self, setpointKey: GenvexNabtoSetpointKey, newValue) -> bool:
-        if self._model_adapter is None:
-            return False
-        if self._model_adapter.providesValue(setpointKey) is False:
-            return False
-        setpointData = self._model_adapter._loadedModel._setpoints[setpointKey]
-        newValue = self._model_adapter.parseValue(fromModbus=False, point=setpointData, value=newValue)
-        if newValue < setpointData['min'] or newValue > setpointData['max']:
-            return False
-        Payload = GenvexPayloadCrypt()
-        Payload.setData(GenvexCommandSetpointWriteList.buildCommand([(setpointData['write_obj'], setpointData['write_address'], newValue)]))
-        self._socket.sendto(GenvexPacket().build_packet(self._client_id, self._server_id, GenvexPacketType.DATA, 3, [Payload]), (self._device_ip, self._device_port))
-        self._last_dataupdate = time.time() - DATAPOINT_UPDATEINTERVAL + 1 # Ensure updates are check for next thread loop.
-        self._last_setpointupdate = time.time() - SETPOINT_UPDATEINTERVAL + 1
-
-    def handleRecieve(self):
+    def _handle_receive(self) -> None:
+        if self._socket is None: return
         try:
             message, address = self._socket.recvfrom(SOCKET_MAXSIZE)
             if (len(message) < 16): # Not a valid packet
                 return 
-            self.processReceivedMessage(message, address)
+            self._process_received_message(message, address)
         except socket.timeout:  
             return
 
-    def receiveThread(self):
+    def _receive_thread(self) -> None:
         while self._listen_thread_open:
-            self.handleRecieve()          
+            self._handle_receive()          
             if self._is_connected:
                 if time.time() - self._last_dataupdate > DATAPOINT_UPDATEINTERVAL:
-                    print("Sending data request..")
-                    self.sendDataStateRequest(100)
+                    _LOGGER.debug("Sending data request..")
+                    self._send_data_state_request(100)
                 if time.time() - self._last_setpointupdate > SETPOINT_UPDATEINTERVAL:                    
-                    self.sendSetpointStateRequest(200)
+                    self._send_setpoint_state_request(200)
                 if time.time() - self._last_response > SECONDS_UNTILRECONNECT:
-                    self.connectToDevice()
+                    self.connect_to_device()
                     
+
+    def _map_points_to_read_args(self, points: Sequence[GenvexNabtoDatapoint]) -> List[GenvexNabtoCommandBuilderReadArgs]:
+        adapter = self._model_adapter
+        if adapter is None: return []
+        return list(map(lambda point: GenvexNabtoCommandBuilderReadArgs(read_obj=adapter.get_point_read_obj(point), read_address=adapter.get_point_read_address(point)), points))
+    
+    def _map_points_to_write_args(self, points: Sequence[GenvexNabtoSetpoint], value:int) -> List[GenvexNabtoCommandBuilderWriteArgs]:
+        adapter = self._model_adapter
+        if adapter is None: return []
+        return list(map(lambda point: GenvexNabtoCommandBuilderWriteArgs(write_obj=adapter.get_point_write_obj(point), write_address=adapter.get_point_write_address(point), value=value), points))
+    

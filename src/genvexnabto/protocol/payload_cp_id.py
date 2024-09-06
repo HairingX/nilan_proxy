@@ -1,23 +1,22 @@
-from .payload import GenvexPayload, GenvexPayloadType
+from .payload import GenvexPayload, Genvexpayload_type
 
 class GenvexPayloadCP_ID(GenvexPayload):
     
-    requiresChecksum = False
-    payloadType = GenvexPayloadType.U_CP_ID
-
+    requires_checksum = False
+    payload_type = Genvexpayload_type.U_CP_ID
     email = ""
 
     def __init__(self) -> None:
         pass
 
-    def setEmail(self, email):
+    def set_email(self, email:str) -> None:
         self.email = email
 
-    def buildPayload(self): 
+    def build_payload(self) -> bytes: 
         length = 5 + len(self.email)
         return b"".join([
-            self.payloadType,
-            self.payloadFlags,
+            self.payload_type,
+            self.payload_flags,
             length.to_bytes(2, 'big'),
             b'\x01', # ID type email
             self.email.encode("ascii")

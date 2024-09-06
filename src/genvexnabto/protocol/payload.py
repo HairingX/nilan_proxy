@@ -1,4 +1,4 @@
-class GenvexPayloadType:
+class Genvexpayload_type:
     U_IPX = b'\x35'
     U_CRYPT = b'\x36'
     U_CP_ID = b'\x3F'
@@ -13,12 +13,12 @@ class GenvexCommandType:
 
 class GenvexPayload():
     
-    requiresChecksum = False
-    payloadType = None
-    payloadFlags = b'\x00'
+    requires_checksum = False
+    payload_type = None
+    payload_flags = b'\x00'
 
     def __init__(self) -> None:
         pass
 
-    def buildPayload(): 
+    def build_payload(self) -> bytes: 
         return b''
