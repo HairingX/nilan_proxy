@@ -71,6 +71,7 @@ class GenvexNabto():
     def get_slave_device_model(self): return self._slave_device_model
     def get_slave_device_number(self): return self._slave_device_number
     def get_discovered_devices(self): return self._discovered_devices
+    def get_device_manufacturer(self): return None if self._model_adapter is None else self._model_adapter.get_manufacturer()
     def get_loaded_model_name(self): return None if self._model_adapter is None else self._model_adapter.get_model_name()
     
     def set_device(self, device_id:str, device_ip:str|None=None, device_port:int|None=None) -> None:
@@ -201,7 +202,11 @@ class GenvexNabto():
     def register_update_handler(self, key: GenvexNabtoDatapointKey|GenvexNabtoSetpointKey, updateMethod: Callable[[float|int, float|int], None]) -> None:
         if self._model_adapter is not None:
             self._model_adapter.register_update_handler(key, updateMethod)
-
+    
+    def deregister_update_handler(self, key: GenvexNabtoDatapointKey|GenvexNabtoSetpointKey, updateMethod: Callable[[float|int, float|int], None]) -> None:
+        if self._model_adapter is not None:
+            self._model_adapter.deregister_update_handler(key, updateMethod)
+    
     def set_setpoint(self, setpointKey: GenvexNabtoSetpointKey, new_value:float|int) -> bool:
         if self._socket is None: return False
         if self._model_adapter is None: return False
@@ -209,9 +214,12 @@ class GenvexNabto():
         if setpoint is None: return False
         new_value = self._model_adapter.parseToModbusValue(point=setpoint, value=new_value)
         if new_value < self._model_adapter.get_point_min(setpoint) or new_value > self._model_adapter.get_point_max(setpoint):
+            _LOGGER.debug(f"Set setpoint: {setpointKey.value} failed, value invalid: {new_value}")
             return False
         Payload = GenvexPayloadCrypt()
-        Payload.set_data(GenvexNabtoCommandBuilder.build_setpoint_write_command(self._map_points_to_write_args([setpoint], new_value)))
+        args=self._map_points_to_write_args([setpoint], new_value)
+        Payload.set_data(GenvexNabtoCommandBuilder.build_setpoint_write_command(args))
+        _LOGGER.debug(f"Set setpoint: {setpointKey.value} value = {new_value} (args={args})")
         self._socket.sendto(GenvexPacketBuilder().build_packet(self._client_id, self._server_id, GenvexPacketType.DATA, 3, [Payload]), (self._device_ip, self._device_port))
         self._last_dataupdate = time.time() - DATAPOINT_UPDATEINTERVAL + 1 # Ensure updates are check for next thread loop.
         self._last_setpointupdate = time.time() - SETPOINT_UPDATEINTERVAL + 1
@@ -267,14 +275,15 @@ class GenvexNabto():
                 self._connection_error = GenvexNabtoConnectionErrorType.AUTHENTICATION_ERROR
 
         elif (packet_type == GenvexPacketType.DATA.value): # 0x16
-            _LOGGER.debug("Data packet", message[16])
+            _LOGGER.debug(f"Data packet: {message[16]}")
             # We only care about data packets with crypt payload. 
             if message[16] == 54: # x36
                 _LOGGER.debug("Packet with crypt payload!")
                 length = int.from_bytes(message[18:20], 'big')
                 payload = message[22:20+length]
-                _LOGGER.debug(''.join(r'\x'+hex(letter)[2:] for letter in payload))
                 sequence_id = int.from_bytes(message[12:14], 'big')
+                _LOGGER.debug(f'sequence_id: {sequence_id}, length: {length}, payload: {payload}')
+                _LOGGER.debug(f''.join(r'\x'+hex(letter)[2:] for letter in payload))
                 if sequence_id == 50: #50
                     self._process_ping_payload(payload)
                 else:
@@ -285,7 +294,7 @@ class GenvexNabto():
                     if sequence_id == 200:                        
                         self._last_setpointupdate = time.time()
             else:
-                _LOGGER.debug("Not an interresting data packet.")
+                _LOGGER.debug(f"Not an interresting data packet. payload: {message}")
         else:
             _LOGGER.debug("Unknown packet type. Ignoring")
 
@@ -301,8 +310,12 @@ class GenvexNabto():
         datalist = self._model_adapter.getDatapointRequestList(sequence_id)
         if datalist is None: return
         Payload = GenvexPayloadCrypt()
-        Payload.set_data(GenvexNabtoCommandBuilder.build_datapoint_read_command(self._map_points_to_read_args(datalist)))
-        self._socket.sendto(GenvexPacketBuilder().build_packet(self._client_id, self._server_id, GenvexPacketType.DATA, sequence_id, [Payload]), (self._device_ip, self._device_port))
+        readargs=self._map_points_to_read_args(datalist)
+        Payload.set_data(GenvexNabtoCommandBuilder.build_datapoint_read_command(readargs))
+        packet=GenvexPacketBuilder().build_packet(self._client_id, self._server_id, GenvexPacketType.DATA, sequence_id, [Payload])
+        address=(self._device_ip, self._device_port)
+        # _LOGGER.debug(f"Send data state request with args: {readargs}, packet: {packet}, payload: {Payload.data}, address:{address}")
+        self._socket.sendto(packet, address)
     
     def _send_setpoint_state_request(self, sequence_id:int) -> None:
         if self._socket is None: return

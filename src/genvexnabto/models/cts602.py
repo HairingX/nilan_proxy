@@ -63,6 +63,8 @@ class GenvexNabtoCTS602(GenvexNabtoBaseModel):
         
         self.set_default_configs()
 
+        #place config modifiers here
+
         
         self._quirks = {
             "hotwaterTempSensor": [

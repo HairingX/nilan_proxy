@@ -29,7 +29,7 @@ class GenvexNabtoCommandBuilder():
     def build_setpoint_read_command(points:List[GenvexNabtoCommandBuilderReadArgs]) -> bytes:
         request = b""
         for point in points:
-            request += point['read_obj'].to_bytes(1, 'big') + point['read_address'].to_bytes(4, 'big')
+            request += point['read_obj'].to_bytes(1, 'big') + point['read_address'].to_bytes(2, 'big')
         return b"".join([
             b'\x00\x00\x00',
             GenvexCommandType.SETPOINT_READLIST,            
@@ -37,7 +37,7 @@ class GenvexNabtoCommandBuilder():
             request,
             b'\x01' # Seems like terminator for list/command
         ])
-    
+
     @staticmethod
     def build_setpoint_write_command(points:List[GenvexNabtoCommandBuilderWriteArgs]) -> bytes:
         request = b""

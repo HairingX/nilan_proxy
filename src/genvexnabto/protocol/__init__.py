@@ -1,5 +1,5 @@
 from .packet import ( GenvexPacketBuilder, GenvexPacketType )
-from .payload import ( GenvexPayload, Genvexpayload_type )
+from .payload import ( GenvexPayload, GenvexPayloadType )
 from .payload_ipx import ( GenvexPayloadIPX )
 from .payload_cp_id import ( GenvexPayloadCP_ID )
 from .payload_crypt import ( GenvexPayloadCrypt )
@@ -10,7 +10,7 @@ __all__ = [
     "GenvexPacketBuilder",
     "GenvexPacketType",
     "GenvexPayload",
-    "Genvexpayload_type",
+    "GenvexPayloadType",
     "GenvexPayloadIPX",
     "GenvexPayloadCP_ID",
     "GenvexPayloadCrypt",

@@ -1,9 +1,9 @@
-from .payload import GenvexPayload, Genvexpayload_type
+from .payload import GenvexPayload, GenvexPayloadType
 
 class GenvexPayloadCrypt(GenvexPayload):
     
     requires_checksum:bool = True
-    payload_type:bytes = Genvexpayload_type.U_CRYPT
+    payload_type:bytes = GenvexPayloadType.U_CRYPT
     data:bytes = b''
 
     def __init__(self) -> None:

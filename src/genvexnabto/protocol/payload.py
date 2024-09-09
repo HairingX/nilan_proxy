@@ -1,4 +1,4 @@
-class Genvexpayload_type:
+class GenvexPayloadType:
     U_IPX = b'\x35'
     U_CRYPT = b'\x36'
     U_CP_ID = b'\x3F'

@@ -41,4 +41,6 @@ class GenvexNabtoOptima314(GenvexNabtoBaseModel):
         }
         
         self.set_default_configs()
+        
+        #place config modifiers here
         self._configs[GenvexNabtoSetpointKey.FILTER_REPLACE_INTERVAL]["unit_of_measurement"] = GenvexNabtoUnits.MONTHS

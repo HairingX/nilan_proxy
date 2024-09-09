@@ -28,3 +28,5 @@ class GenvexNabtoCTS602Light(GenvexNabtoBaseModel):
         }
 
         self.set_default_configs()
+        
+        #place config modifiers here

@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from enum import Enum
 from typing import Dict, List, TypedDict, NotRequired
 
@@ -38,9 +39,10 @@ class GenvexNabtoDatapointKey(Enum):
     FILTER_OK = "filter_ok"
     HUMIDITY = "humidity"
     HUMIDITY_AVG = "humidity_average"
-    HUMIDITY_AVG_OK = "humidity_average_ok"
+    HUMIDITY_HIGH_ACTIVE = "humidity_high_active"
     HUMIDITY_HIGH_LEVEL = "humidity_high_level"
     HUMIDITY_HIGH_LEVEL_TIME = "humidity_high_level_time"
+    """Time the high humidity functionality has been active"""
     SACRIFICIAL_ANODE_OK = "sacrificial_anode_ok"
     STATE_CODE = "state_code"
     TEMP_CONDENSER = "temp_condenser"
@@ -220,18 +222,18 @@ class GenvexNabtoSetpointKey(Enum):
     
 class GenvexNabtoDatapoint(TypedDict):
     divider: NotRequired[int]
-    """Applied to the register value in the order: 1: invert_from, 2: divider, 3: offset"""
+    """Applied to the register value in the order: 1: divider, 2: offset, 3: modifier"""
     offset: NotRequired[int]
-    """Applied to the register value in the order: 1: invert_from, 2: divider, 3: offset"""
+    """Applied to the register value in the order: 1: divider, 2: offset, 3: modifier"""
     read_address: int
+    read_modifier: NotRequired[Callable[[float|int], float|int]]
+    """Modifier applied to value after it has been parsed by the system. can be used to alter hours to days etc. or round floating values
+    
+    Applied to the register value in the order: 1: divider, 2: offset, 3: modifier"""
     read_obj: NotRequired[int]
     """default is 0"""
     signed: bool
     """indication of the data being signed or unsigned"""
-    invert_from: NotRequired[int]
-    """Applied to the register value in the order: 1: invert_from, 2: divider, 3: offset
-    
-    Inverts the register value by setting this to the max value, ex. set to 1 to invert a bool"""
 
 class GenvexNabtoSetpoint(GenvexNabtoDatapoint):
     max: int
@@ -241,6 +243,8 @@ class GenvexNabtoSetpoint(GenvexNabtoDatapoint):
     step: NotRequired[int]
     """step size in register value, if unset will default to the divider"""
     write_address: int
+    write_modifier: NotRequired[Callable[[float|int], float|int]]
+    """Modifier applied to value before it has been parsed back to register type. can be used to alter hours to days etc. or round floating values"""
     write_obj: NotRequired[int]
     """default is 0"""
 
@@ -293,9 +297,9 @@ DEFAULT_CONFIGS:Dict[GenvexNabtoDatapointKey|GenvexNabtoSetpointKey, GenvexNabto
             GenvexNabtoDatapointKey.FILTER_OK: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.BOOL, read=True),
             GenvexNabtoDatapointKey.HUMIDITY: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.PCT, read=True),
             GenvexNabtoDatapointKey.HUMIDITY_HIGH_LEVEL: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.UNDEFINED, read=True),
-            GenvexNabtoDatapointKey.HUMIDITY_HIGH_LEVEL_TIME: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.SECONDS, read=True),
+            GenvexNabtoDatapointKey.HUMIDITY_HIGH_LEVEL_TIME: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.MINUTES, read=True),
             GenvexNabtoDatapointKey.HUMIDITY_AVG: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.PCT, read=True),
-            GenvexNabtoDatapointKey.HUMIDITY_AVG_OK: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.BOOL, read=True),
+            GenvexNabtoDatapointKey.HUMIDITY_HIGH_ACTIVE: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.BOOL, read=True),
             GenvexNabtoDatapointKey.SACRIFICIAL_ANODE_OK: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.BOOL, read=True),
             GenvexNabtoDatapointKey.STATE_CODE: GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.UNDEFINED, read=True),
             GenvexNabtoDatapointKey.TEMP_CONDENSER:GenvexNabtoPointConfig(unit_of_measurement=GenvexNabtoUnits.CELSIUS, read=True),
@@ -400,9 +404,9 @@ class GenvexNabtoBaseModel:
         return [key for key, value in self._configs.items() if key in self.setpoints and value.get("read", False) == True]
 
     def get_unit_of_measure(self, key:GenvexNabtoDatapointKey|GenvexNabtoSetpointKey) -> str|None:
-        if key in self._configs: return self._configs[key].get("unit_of_measurement", None)
+        if key in self._configs: return self._configs[key]["unit_of_measurement"]
         return GenvexNabtoUnits.UNDEFINED
-    
+  
     def set_default_configs(self) -> None:
         """Sets the point configurations to the standard setup, will not override already assigned records"""
     #     # only keep the points supported by the unit
@@ -414,3 +418,18 @@ class GenvexNabtoBaseModel:
             key: value for key, value in DEFAULT_CONFIGS.items()
             if key not in self._configs and (key in self.setpoints or key in self.datapoints)
         })
+    
+    @staticmethod
+    def modifier_flip_bool(value:float|int) -> float|int:
+        """Flips the true/false state 
+        - 1 -> 0
+        - 0 -> 1"""
+        return 1-value
+    
+    @staticmethod
+    def modifier_seconds_to_minutes(value:float|int) -> float|int:
+        return round(value/60)
+    
+    @staticmethod
+    def modifier_hours_to_days(value:float|int) -> float|int:
+        return round(value/24)

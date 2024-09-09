@@ -20,7 +20,7 @@ class GenvexNabtoCTS400(GenvexNabtoBaseModel):
             GenvexNabtoDatapointKey.HUMIDITY_AVG: GenvexNabtoDatapoint(read_address=46, divider=10, signed=False),
             GenvexNabtoDatapointKey.CO2_LEVEL: GenvexNabtoDatapoint(read_address=47, divider=1, signed=False),
             GenvexNabtoDatapointKey.VOC_LEVEL: GenvexNabtoDatapoint(read_address=48, divider=1, signed=False),
-            GenvexNabtoDatapointKey.FILTER_OK: GenvexNabtoDatapoint(read_address=49, divider=1, signed=False, invert_from=1),
+            GenvexNabtoDatapointKey.FILTER_OK: GenvexNabtoDatapoint(read_address=49, divider=1, signed=False, read_modifier = self.modifier_flip_bool),
             GenvexNabtoDatapointKey.ALARM_STATUS: GenvexNabtoDatapoint(read_address=50, divider=1, signed=False),
             GenvexNabtoDatapointKey.ALARM_1_CODE: GenvexNabtoDatapoint(read_address=51, divider=1, signed=False),
             GenvexNabtoDatapointKey.ALARM_2_CODE: GenvexNabtoDatapoint(read_address=52, divider=1, signed=False),
@@ -29,11 +29,11 @@ class GenvexNabtoCTS400(GenvexNabtoBaseModel):
             GenvexNabtoDatapointKey.ALARM_2_INFO: GenvexNabtoDatapoint(read_address=57, divider=1, signed=False),
             GenvexNabtoDatapointKey.ALARM_3_INFO: GenvexNabtoDatapoint(read_address=58, divider=1, signed=False),             
             GenvexNabtoDatapointKey.FAN_LEVEL_CURRENT: GenvexNabtoDatapoint(read_address=63, divider=1, signed=False),             
-            GenvexNabtoDatapointKey.HUMIDITY_AVG_OK: GenvexNabtoDatapoint(read_address=64, divider=1, signed=False),             
+            GenvexNabtoDatapointKey.HUMIDITY_HIGH_ACTIVE: GenvexNabtoDatapoint(read_address=64, divider=1, signed=False, read_modifier = self.modifier_flip_bool),
             GenvexNabtoDatapointKey.HUMIDITY_HIGH_LEVEL: GenvexNabtoDatapoint(read_address=66, divider=10, signed=False),             
-            GenvexNabtoDatapointKey.HUMIDITY_HIGH_LEVEL_TIME: GenvexNabtoDatapoint(read_address=70, divider=1, signed=False),             
+            GenvexNabtoDatapointKey.HUMIDITY_HIGH_LEVEL_TIME: GenvexNabtoDatapoint(read_address=70, divider=1, signed=False, read_modifier = self.modifier_seconds_to_minutes),
             GenvexNabtoDatapointKey.WINTER_MODE_ACTIVE: GenvexNabtoDatapoint(read_address=72, divider=1, signed=False),
-            GenvexNabtoDatapointKey.FILTER_REPLACE_TIME_AGO: GenvexNabtoDatapoint(read_address=77, divider=1, signed=False),
+            GenvexNabtoDatapointKey.FILTER_REPLACE_TIME_AGO: GenvexNabtoDatapoint(read_address=77, divider=1, signed=False, read_modifier = self.modifier_hours_to_days),
             GenvexNabtoDatapointKey.DEFROST_ACTIVE: GenvexNabtoDatapoint(read_address=91, divider=1, signed=False),
             GenvexNabtoDatapointKey.FILTER_REPLACE_TIME_REMAIN: GenvexNabtoDatapoint(read_address=110, divider=1, signed=False),
         }
@@ -66,8 +66,10 @@ class GenvexNabtoCTS400(GenvexNabtoBaseModel):
             GenvexNabtoSetpointKey.FAN_LEVEL3_EXTRACT_PRESET: GenvexNabtoSetpoint(read_address=65, write_address=65, divider=10, min=200, max=1000, signed=False),
             GenvexNabtoSetpointKey.FAN_LEVEL4_EXTRACT_PRESET: GenvexNabtoSetpoint(read_address=66, write_address=66, divider=10, min=200, max=1000, signed=False),
             GenvexNabtoSetpointKey.FAN_LEVEL: GenvexNabtoSetpoint(read_address=69, write_address=69, divider=1, min=1, max=4, signed=False),
-            GenvexNabtoSetpointKey.FAN_LEVEL_HIGH_CO2: GenvexNabtoSetpoint(read_address=80, write_address=80, divider=1, min=2, max=4, signed=False),
             GenvexNabtoSetpointKey.ENABLE: GenvexNabtoSetpoint(read_address=70, write_address=70, divider=1, min=0, max=1, signed=False),
+            GenvexNabtoSetpointKey.FAN_LEVEL_HIGH_CO2: GenvexNabtoSetpoint(read_address=80, write_address=80, divider=1, min=2, max=4, signed=False),
         }
-        
+
         self.set_default_configs()
+        
+        #place config modifiers here
