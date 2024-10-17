@@ -1,17 +1,17 @@
 from enum import Enum
 from typing import List
 
-from .command_builder import GenvexNabtoCommandBuilder
-from .payload_crypt import GenvexPayloadCrypt
-from .payload import GenvexPayload
+from .command_builder import NilanProxyCommandBuilder
+from .payload_crypt import ProxyPayloadCrypt
+from .payload import ProxyPayload
 
-class GenvexPacketType(Enum): 
+class ProxyPacketType(Enum): 
     U_CONNECT = b'\x83'
     DATA = b'\x16'
 
-class GenvexPacketBuilder():
+class ProxyPacketBuilder():
     @staticmethod
-    def build_packet(CLIENT_ID:bytes, SERVER_ID:bytes, PACKET_TYPE: GenvexPacketType, SEQUENCE_ID:int, PAYLOADS: List[GenvexPayload]=[]) -> bytes:
+    def build_packet(CLIENT_ID:bytes, SERVER_ID:bytes, PACKET_TYPE: ProxyPacketType, SEQUENCE_ID:int, PAYLOADS: List[ProxyPayload]=[]) -> bytes:
         payload_bundle = b''
         checksum_required = False
         for payload in PAYLOADS:
@@ -48,15 +48,15 @@ class GenvexPacketBuilder():
     @staticmethod
     def build_keep_alive_packet(CLIENT_ID:bytes, SERVER_ID:bytes, SEQUENCE_ID:int):
 
-        CryptPayload = GenvexPayloadCrypt()
-        CryptPayload.set_data(GenvexNabtoCommandBuilder.build_keep_alive_command())
+        CryptPayload = ProxyPayloadCrypt()
+        CryptPayload.set_data(NilanProxyCommandBuilder.build_keep_alive_command())
         payload = CryptPayload.build_payload()
         packet_length = len(payload) + 18 + 2 # Header with framecontrol tag and checksum at end
         
         packet = b''.join([
             CLIENT_ID,
             SERVER_ID,
-            GenvexPacketType.DATA.value,
+            ProxyPacketType.DATA.value,
             b'\x02', # Version
             b'\x00', # Retransmision count
             b'\x40', # Flags

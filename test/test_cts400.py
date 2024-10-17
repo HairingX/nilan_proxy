@@ -1,10 +1,10 @@
 import unittest
-from common import GenvexNabtoCTS400
+from common import NilanProxyCTS400
 from modelTester import modelTester
 
 class CTS400Test(modelTester):    
     def setUp(self):
-        self.loadedModel = GenvexNabtoCTS400()
+        self.loadedModel = NilanProxyCTS400()
         self.expectedName = "CTS 400"
         self.expectedManufacturer = "Nilan"
 

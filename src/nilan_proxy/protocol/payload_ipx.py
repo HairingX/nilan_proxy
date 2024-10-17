@@ -1,9 +1,9 @@
-from .payload import GenvexPayload, GenvexPayloadType
+from .payload import ProxyPayload, ProxyPayloadType
 
-class GenvexPayloadIPX(GenvexPayload):
+class ProxyPayloadIPX(ProxyPayload):
     
     requires_checksum = False
-    payload_type = GenvexPayloadType.U_IPX
+    payload_type = ProxyPayloadType.U_IPX
 
     def __init__(self) -> None:
         pass

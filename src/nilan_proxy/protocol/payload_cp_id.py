@@ -1,9 +1,9 @@
-from .payload import GenvexPayload, GenvexPayloadType
+from .payload import ProxyPayload, ProxyPayloadType
 
-class GenvexPayloadCP_ID(GenvexPayload):
+class ProxyPayloadCP_ID(ProxyPayload):
     
     requires_checksum = False
-    payload_type = GenvexPayloadType.U_CP_ID
+    payload_type = ProxyPayloadType.U_CP_ID
     email = ""
 
     def __init__(self) -> None:

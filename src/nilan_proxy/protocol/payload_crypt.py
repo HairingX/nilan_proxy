@@ -1,9 +1,9 @@
-from .payload import GenvexPayload, GenvexPayloadType
+from .payload import ProxyPayload, ProxyPayloadType
 
-class GenvexPayloadCrypt(GenvexPayload):
+class ProxyPayloadCrypt(ProxyPayload):
     
     requires_checksum:bool = True
-    payload_type:bytes = GenvexPayloadType.U_CRYPT
+    payload_type:bytes = ProxyPayloadType.U_CRYPT
     data:bytes = b''
 
     def __init__(self) -> None:

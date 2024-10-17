@@ -1,4 +1,4 @@
-from common import GenvexNabtoBaseModel, GenvexNabtoSetpointKey, GenvexNabtoDatapointKey
+from common import NilanProxyBaseModel, NilanProxySetpointKey, NilanProxyDatapointKey
 import sys
 import unittest
 import logging
@@ -7,7 +7,7 @@ logging.getLogger( "SomeTest.testSomething" ).setLevel( logging.DEBUG )
 class modelTester(unittest.TestCase):
 
     def setUp(self):
-        self.loadedModel = GenvexNabtoBaseModel()
+        self.loadedModel = NilanProxyBaseModel()
         self.expectedName = "Basemodel"
         self.expectedManufacturer = ""
 

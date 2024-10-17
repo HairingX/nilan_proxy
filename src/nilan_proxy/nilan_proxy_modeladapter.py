@@ -1,21 +1,21 @@
 import logging
 from typing import Dict, List
 from collections.abc import Callable
-from .models import ( GenvexNabtoBaseModel, GenvexNabtoOptima314, GenvexNabtoOptima312, GenvexNabtoOptima301, GenvexNabtoOptima270, GenvexNabtoOptima260, GenvexNabtoOptima251, GenvexNabtoOptima250, GenvexNabtoCTS400, GenvexNabtoCTS602, GenvexNabtoCTS602Light,GenvexNabtoDatapoint, GenvexNabtoDatapointKey, GenvexNabtoSetpoint, GenvexNabtoSetpointKey )
+from .models import ( NilanProxyBaseModel, NilanProxyOptima314, NilanProxyOptima312, NilanProxyOptima301, NilanProxyOptima270, NilanProxyOptima260, NilanProxyOptima251, NilanProxyOptima250, NilanProxyCTS400, NilanProxyCTS602, NilanProxyCTS602Light,NilanProxyDatapoint, NilanProxyDatapointKey, NilanProxySetpoint, NilanProxySetpointKey )
 
 _LOGGER = logging.getLogger(__name__)
 
-class GenvexNabtoModelAdapter:
-    _loaded_model: GenvexNabtoBaseModel
-    _current_datapoint_list: Dict[int, List[GenvexNabtoDatapointKey]] = {}
-    _current_setpoint_list: Dict[int, List[GenvexNabtoSetpointKey]] = {}
-    _update_handlers: Dict[GenvexNabtoDatapointKey|GenvexNabtoSetpointKey, List[Callable[[float|int, float|int], None]]] = {}
+class NilanProxyModelAdapter:
+    _loaded_model: NilanProxyBaseModel
+    _current_datapoint_list: Dict[int, List[NilanProxyDatapointKey]] = {}
+    _current_setpoint_list: Dict[int, List[NilanProxySetpointKey]] = {}
+    _update_handlers: Dict[NilanProxyDatapointKey|NilanProxySetpointKey, List[Callable[[float|int, float|int], None]]] = {}
     """Callable[old_value, new_value]"""
 
-    _values: Dict[GenvexNabtoDatapointKey|GenvexNabtoSetpointKey, float|int] = {}
+    _values: Dict[NilanProxyDatapointKey|NilanProxySetpointKey, float|int] = {}
 
     def __init__(self, model:int, device_number:int, slave_device_number:int, slave_device_model:int) -> None:
-        model_to_load = GenvexNabtoModelAdapter.translate_to_model(model, device_number, slave_device_number, slave_device_model)
+        model_to_load = NilanProxyModelAdapter.translate_to_model(model, device_number, slave_device_number, slave_device_model)
         if model_to_load == None:
             raise Exception("Invalid model")
         self._loaded_model = model_to_load(device_number, slave_device_number, slave_device_model)
@@ -30,69 +30,69 @@ class GenvexNabtoModelAdapter:
         return self._loaded_model.get_manufacturer()
 
     @staticmethod
-    def translate_to_model(model:int, device_number:int, slave_device_number:int, slave_device_model:int) -> Callable[[int,int,int], GenvexNabtoBaseModel]|None:
+    def translate_to_model(model:int, device_number:int, slave_device_number:int, slave_device_model:int) -> Callable[[int,int,int], NilanProxyBaseModel]|None:
         if model == 2010:
             if device_number == 79265:
-                return GenvexNabtoOptima270
+                return NilanProxyOptima270
         if model == 2020:
             if device_number == 79280:
-                return GenvexNabtoOptima314
+                return NilanProxyOptima314
         if model == 1040:
             if slave_device_number == 70810:
                 if slave_device_model == 26:
-                    return GenvexNabtoOptima260
+                    return NilanProxyOptima260
             if slave_device_number == 79250:
                 if slave_device_model == 9:
-                    return GenvexNabtoOptima312
+                    return NilanProxyOptima312
                 if slave_device_model == 8:
-                    return GenvexNabtoOptima251
+                    return NilanProxyOptima251
                 if slave_device_model == 5:
-                    return GenvexNabtoOptima301
+                    return NilanProxyOptima301
                 if slave_device_model == 1:
-                    return GenvexNabtoOptima250
+                    return NilanProxyOptima250
         if model == 1140 or model == 1141:
             if slave_device_number == 72270:
                 if slave_device_model == 1:
-                    return GenvexNabtoCTS400
+                    return NilanProxyCTS400
             if slave_device_number == 2763306:
                 if slave_device_model == 2:
-                    return GenvexNabtoCTS602Light
-                return GenvexNabtoCTS602
+                    return NilanProxyCTS602Light
+                return NilanProxyCTS602
             
         return None
 
     @staticmethod
     def provides_model(model:int, device_number:int, slave_device_number:int, slave_device_model:int) -> bool:
-        return GenvexNabtoModelAdapter.translate_to_model(model, device_number, slave_device_number, slave_device_model) is not None
+        return NilanProxyModelAdapter.translate_to_model(model, device_number, slave_device_number, slave_device_model) is not None
     
-    def provides_value(self, key: GenvexNabtoDatapointKey|GenvexNabtoSetpointKey) -> bool:
-        if isinstance(key, GenvexNabtoDatapointKey): return self._loaded_model.model_provides_datapoint(key) 
+    def provides_value(self, key: NilanProxyDatapointKey|NilanProxySetpointKey) -> bool:
+        if isinstance(key, NilanProxyDatapointKey): return self._loaded_model.model_provides_datapoint(key) 
         return self._loaded_model.model_provides_setpoint(key)
 
-    def has_value(self, key: GenvexNabtoDatapointKey|GenvexNabtoSetpointKey) -> bool:
+    def has_value(self, key: NilanProxyDatapointKey|NilanProxySetpointKey) -> bool:
         return key in self._values
     
-    def get_value(self, key: GenvexNabtoDatapointKey|GenvexNabtoSetpointKey) -> float|int|None:
+    def get_value(self, key: NilanProxyDatapointKey|NilanProxySetpointKey) -> float|int|None:
         return self._values.get(key)
     
-    def get_min_value(self, key: GenvexNabtoSetpointKey) -> float|int|None:
+    def get_min_value(self, key: NilanProxySetpointKey) -> float|int|None:
         if self._loaded_model.model_provides_setpoint(key): 
             return self.parse_from_modbus_value(point=self._loaded_model.setpoints[key], value=self._loaded_model.setpoints[key]['min'])
         return None
     
-    def get_max_value(self, key: GenvexNabtoSetpointKey) -> float|int|None:
+    def get_max_value(self, key: NilanProxySetpointKey) -> float|int|None:
         if self._loaded_model.model_provides_setpoint(key): 
             return self.parse_from_modbus_value(point=self._loaded_model.setpoints[key], value=self._loaded_model.setpoints[key]['max'])
         return None
     
-    def get_unit_of_measure(self, key: GenvexNabtoDatapointKey|GenvexNabtoSetpointKey) -> str|None:
+    def get_unit_of_measure(self, key: NilanProxyDatapointKey|NilanProxySetpointKey) -> str|None:
         return self._loaded_model.get_unit_of_measure(key)
     
-    def get_setpoint(self, key:GenvexNabtoSetpointKey) -> GenvexNabtoSetpoint|None:
+    def get_setpoint(self, key:NilanProxySetpointKey) -> NilanProxySetpoint|None:
         if not self._loaded_model.model_provides_setpoint(key): return None
         return self._loaded_model.setpoints[key]
     
-    def get_setpoint_step(self, key: GenvexNabtoSetpointKey) -> float|int:
+    def get_setpoint_step(self, key: NilanProxySetpointKey) -> float|int:
         if self._loaded_model.model_provides_setpoint(key):
             if 'step' in self._loaded_model.setpoints[key]:
                 divider = self.get_point_divider(self._loaded_model.setpoints[key])    
@@ -101,13 +101,13 @@ class GenvexNabtoModelAdapter:
                 return step
         return 1
      
-    def register_update_handler(self, key: GenvexNabtoDatapointKey|GenvexNabtoSetpointKey, update_method: Callable[[float|int, float|int], None]):
+    def register_update_handler(self, key: NilanProxyDatapointKey|NilanProxySetpointKey, update_method: Callable[[float|int, float|int], None]):
         if not self.provides_value(key): return
         if key not in self._update_handlers:
             self._update_handlers[key] = []
         self._update_handlers[key].append(update_method)
     
-    def deregister_update_handler(self, key: GenvexNabtoDatapointKey|GenvexNabtoSetpointKey, update_method: Callable[[float|int, float|int], None]):
+    def deregister_update_handler(self, key: NilanProxyDatapointKey|NilanProxySetpointKey, update_method: Callable[[float|int, float|int], None]):
         if not self.provides_value(key): return
         if key not in self._update_handlers: return
         self._update_handlers[key].remove(update_method)
@@ -117,16 +117,16 @@ class GenvexNabtoModelAdapter:
             for method in self._update_handlers[key]:
                 method(-1, self._values[key])
 
-    def getDatapointRequestList(self, sequence_id:int) -> List[GenvexNabtoDatapoint]|None:
+    def getDatapointRequestList(self, sequence_id:int) -> List[NilanProxyDatapoint]|None:
         if sequence_id not in self._current_datapoint_list: return None
-        return_list:List[GenvexNabtoDatapoint] = []
+        return_list:List[NilanProxyDatapoint] = []
         for key in self._current_datapoint_list[sequence_id]:
             return_list.append(self._loaded_model.datapoints[key])
         return return_list
     
-    def get_setpoint_request_list(self, sequence_id:int) -> List[GenvexNabtoSetpoint]|None:
+    def get_setpoint_request_list(self, sequence_id:int) -> List[NilanProxySetpoint]|None:
         if sequence_id not in self._current_setpoint_list: return None
-        return_list:List[GenvexNabtoSetpoint] = []
+        return_list:List[NilanProxySetpoint] = []
         for key in self._current_setpoint_list[sequence_id]:
             return_list.append(self._loaded_model.setpoints[key])
         return return_list
@@ -179,7 +179,7 @@ class GenvexNabtoModelAdapter:
                     for method in self._update_handlers[valueKey]:
                         method(old_value, self._values[valueKey])
 
-    def parseToModbusValue(self, point:GenvexNabtoDatapoint|GenvexNabtoSetpoint, value: float|int) -> int:
+    def parseToModbusValue(self, point:NilanProxyDatapoint|NilanProxySetpoint, value: float|int) -> int:
         divider = self.get_point_divider(point)
         offset = self.get_point_offset(point)
         modifier = self.get_point_write_modifier(point)
@@ -189,7 +189,7 @@ class GenvexNabtoModelAdapter:
         if offset != 0: new_value -= offset 
         return int(new_value) #cast to int, modbus writes only accept an int
 
-    def parse_from_modbus_value(self, point:GenvexNabtoDatapoint|GenvexNabtoSetpoint, value: int) -> float|int:
+    def parse_from_modbus_value(self, point:NilanProxyDatapoint|NilanProxySetpoint, value: int) -> float|int:
         divider = self.get_point_divider(point)
         offset = self.get_point_offset(point)
         modifier = self.get_point_read_modifier(point)
@@ -199,27 +199,27 @@ class GenvexNabtoModelAdapter:
         if modifier is not None: new_value = modifier(new_value)
         return new_value
 
-    def get_point_divider(self, point:GenvexNabtoDatapoint|GenvexNabtoSetpoint) -> int: 
+    def get_point_divider(self, point:NilanProxyDatapoint|NilanProxySetpoint) -> int: 
         return 1 if 'divider' not in point else point['divider']
-    def get_point_offset(self, point:GenvexNabtoDatapoint|GenvexNabtoSetpoint) -> int: 
+    def get_point_offset(self, point:NilanProxyDatapoint|NilanProxySetpoint) -> int: 
         return 0 if 'offset' not in point else point['offset']
-    def get_point_read_address(self, point:GenvexNabtoDatapoint) -> int: 
+    def get_point_read_address(self, point:NilanProxyDatapoint) -> int: 
         return point['read_address']
-    def get_point_read_obj(self, point:GenvexNabtoDatapoint|GenvexNabtoSetpoint) -> int: 
+    def get_point_read_obj(self, point:NilanProxyDatapoint|NilanProxySetpoint) -> int: 
         return 0 if 'read_obj' not in point else point['read_obj']
-    def get_point_write_address(self, point:GenvexNabtoSetpoint) -> int: 
+    def get_point_write_address(self, point:NilanProxySetpoint) -> int: 
         return point['write_address']
-    def get_point_write_obj(self, point:GenvexNabtoSetpoint) -> int: 
+    def get_point_write_obj(self, point:NilanProxySetpoint) -> int: 
         return 0 if 'write_obj' not in point else point['write_obj']
-    def get_point_signed(self, point:GenvexNabtoDatapoint|GenvexNabtoSetpoint) -> bool: 
+    def get_point_signed(self, point:NilanProxyDatapoint|NilanProxySetpoint) -> bool: 
         return point['signed']
-    def get_point_step(self, point:GenvexNabtoSetpoint) -> int: 
+    def get_point_step(self, point:NilanProxySetpoint) -> int: 
         return 1 if 'step' not in point else point['step']
-    def get_point_max(self, point:GenvexNabtoSetpoint) -> int: 
+    def get_point_max(self, point:NilanProxySetpoint) -> int: 
         return point['max']
-    def get_point_min(self, point:GenvexNabtoSetpoint) -> int: 
+    def get_point_min(self, point:NilanProxySetpoint) -> int: 
         return point['min']
-    def get_point_read_modifier(self, point:GenvexNabtoDatapoint|GenvexNabtoSetpoint) -> Callable[[float|int], float|int]|None: 
+    def get_point_read_modifier(self, point:NilanProxyDatapoint|NilanProxySetpoint) -> Callable[[float|int], float|int]|None: 
         return None if 'read_modifier' not in point else point['read_modifier']
-    def get_point_write_modifier(self, point:GenvexNabtoDatapoint|GenvexNabtoSetpoint) -> Callable[[float|int], float|int]|None: 
+    def get_point_write_modifier(self, point:NilanProxyDatapoint|NilanProxySetpoint) -> Callable[[float|int], float|int]|None: 
         return None if 'write_modifier' not in point else point['write_modifier']
