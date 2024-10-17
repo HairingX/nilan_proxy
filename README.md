@@ -2,7 +2,7 @@
 Library to locally interface with HVAC systems running Nilan or Genvex Connect gateways.
 Usually, those are only cloud accessible; however, after lots of work, we finally have a local solution ready.
 
-The library is built to be used by the Home Assistant custom component "Nilan Connect".
+The library is primarily built to be used by the Home Assistant custom component [Nilan Connect](https://github.com/HairingX/nilan_connect).
 
 ### Supported Controller Models
 | Controller         | Gateway Required      | Supported | Tested |
