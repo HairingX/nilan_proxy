@@ -26,6 +26,7 @@ I am not personally or in any way responsible for any damages should you choose 
 
 ## Special Thanks
 This library owes special thanks to superrob; without him, this would not exist.
+For more info see his library here: https://github.com/superrob/genvexnabto
 
 ### How Superrob Got the Base Library Developed
 Genvex Connect and Nilan gateways both use the proprietary "Micro Nabto" protocol. Any mentions of it are very scarce online, with most official documentation being wiped from the internet after the companies released "Nabto Edge," which is highly incompatible with the older "Micro Nabto."
