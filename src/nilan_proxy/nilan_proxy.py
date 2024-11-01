@@ -338,15 +338,18 @@ class NilanProxy():
 
     def _receive_thread(self) -> None:
         while self._listen_thread_open:
-            self._handle_receive()          
-            if self._is_connected:
-                if time.time() - self._last_dataupdate > DATAPOINT_UPDATEINTERVAL:
-                    _LOGGER.debug("Sending data request..")
-                    self._send_data_state_request(100)
-                if time.time() - self._last_setpointupdate > SETPOINT_UPDATEINTERVAL:                    
-                    self._send_setpoint_state_request(200)
-                if time.time() - self._last_response > SECONDS_UNTILRECONNECT:
-                    self.connect_to_device()
+            try :
+                self._handle_receive()
+                if self._is_connected:
+                    if time.time() - self._last_dataupdate > DATAPOINT_UPDATEINTERVAL:
+                        _LOGGER.debug("Sending data request..")
+                        self._send_data_state_request(100)
+                    if time.time() - self._last_setpointupdate > SETPOINT_UPDATEINTERVAL:                    
+                        self._send_setpoint_state_request(200)
+                    if time.time() - self._last_response > SECONDS_UNTILRECONNECT:
+                        self.connect_to_device()
+            except Exception as e:
+                _LOGGER.error(f"Error in receive thread: {e}")
                     
 
     def _map_points_to_read_args(self, points: Sequence[NilanProxyDatapoint]) -> List[NilanProxyCommandBuilderReadArgs]:
