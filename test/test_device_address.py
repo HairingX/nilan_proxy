@@ -1,5 +1,5 @@
 import unittest
-from common import NilanProxy
+from common import NilanProxy, make_offline_proxy
 
 
 class DeviceAddressTest(unittest.TestCase):
@@ -28,25 +28,16 @@ class DeviceAddressTest(unittest.TestCase):
             with self.subTest(value=value):
                 self.assertIsNone(NilanProxy.sanitize_device_port(value))
 
-    def _make_proxy(self):
-        proxy = NilanProxy()
-        proxy.stop_listening()
-        if proxy._listen_thread is not None:
-            proxy._listen_thread.join(timeout=5)
-        proxy.close_socket()
-        proxy._discovered_devices = {}
-        proxy._device_ip = None
-        return proxy
 
     def test_set_device_ignores_unset_address(self):
         """An unset address must leave the proxy waiting for discovery, not poisoned."""
-        proxy = self._make_proxy()
+        proxy = make_offline_proxy()
         proxy.set_device("abcd.remote.lscontrol.dk", "None", 0)
         self.assertIsNone(proxy.get_device_ip())
         self.assertEqual(proxy.get_discovered_devices(), {})
 
     def test_set_device_keeps_manual_address(self):
-        proxy = self._make_proxy()
+        proxy = make_offline_proxy()
         proxy.set_device("abcd.remote.lscontrol.dk", "192.168.1.50", 5570)
         self.assertEqual(proxy.get_device_ip(), "192.168.1.50")
         self.assertEqual(proxy.get_device_port(), 5570)
@@ -54,7 +45,7 @@ class DeviceAddressTest(unittest.TestCase):
 
     def test_connect_without_address_returns_false(self):
         """Must fail cleanly instead of raising socket.gaierror out of setup."""
-        proxy = self._make_proxy()
+        proxy = make_offline_proxy()
         proxy.set_device("abcd.remote.lscontrol.dk", None, None)
         # Isolate the address check by satisfying the guards in front of it. Without
         # the check this would reach sendto on this object and raise instead.

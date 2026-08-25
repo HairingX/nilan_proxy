@@ -16,7 +16,7 @@ from .models import ( NilanProxyDatapointKey, NilanProxySetpointKey, NilanProxyD
 from .nilan_proxy_modeladapter import NilanProxyModelAdapter
 from .protocol import (ProxyPacketType,  ProxyPayloadIPX, ProxyPayloadCrypt, ProxyPayloadCP_ID,  ProxyPacketBuilder, NilanProxyCommandBuilder, NilanProxyCommandBuilderReadArgs)
 
-from .const import ( SOCKET_TIMEOUT, SOCKET_MAXSIZE, DATAPOINT_UPDATEINTERVAL, SETPOINT_UPDATEINTERVAL, SECONDS_UNTILRECONNECT, DISCOVERY_PORT, DISCOVERY_TIMEOUT, DISCOVERY_RESEND_INTERVAL, DISCOVERY_RECONNECT_INTERVAL)
+from .const import ( SOCKET_TIMEOUT, SOCKET_MAXSIZE, DATAPOINT_UPDATEINTERVAL, SETPOINT_UPDATEINTERVAL, SECONDS_UNTILRECONNECT, SECONDS_UNTILUNAVAILABLE, DISCOVERY_PORT, DISCOVERY_TIMEOUT, DISCOVERY_RESEND_INTERVAL, DISCOVERY_RECONNECT_INTERVAL)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -41,11 +41,18 @@ class NilanProxy():
     _model_adapter:NilanProxyModelAdapter|None = None
 
     _is_connected:bool = False
+    """A session has been established and a model was loaded. Gates the polling and
+    reconnect logic, and is not the same thing as the device being reachable."""
+    _is_available:bool = False
+    """The device answered recently. This is what entities should reflect."""
     _connection_error:NilanProxyConnectionErrorType|None = None
     _last_response:float = 0
     _last_dataupdate:float = 0
     _last_setpointupdate:float = 0
     _last_discovery:float = 0
+
+    _connection_state_handlers:List[Callable[[bool], None]] = []
+    """Callable[is_available]. Bound per instance in __init__."""
 
     _socket = None
     _listen_thread = None
@@ -55,6 +62,8 @@ class NilanProxy():
     
     def __init__(self, authorized_email:str = "") -> None:
         self._authorized_email = authorized_email
+        # Bind before the listen thread starts, it notifies through this list.
+        self._connection_state_handlers = []
         self.start_listening()
         return    
     
@@ -63,6 +72,10 @@ class NilanProxy():
     """set the email the system was configured with through the official application/app"""
     
     def is_connected(self): return self._is_connected
+    def is_available(self) -> bool:
+        """True while the device is answering. Goes false after SECONDS_UNTILUNAVAILABLE
+        without a response, so consumers can stop presenting stale readings as current."""
+        return self._is_available
     def get_connection_error(self): return self._connection_error
     
     def get_device_id(self): return self._device_id
@@ -247,6 +260,36 @@ class NilanProxy():
         if self._model_adapter is not None:
             self._model_adapter.notify_all_update_handlers()
     
+    def register_connection_state_handler(self, handler: Callable[[bool], None]) -> None:
+        """Called with the new availability whenever it changes."""
+        if handler not in self._connection_state_handlers:
+            self._connection_state_handlers.append(handler)
+
+    def deregister_connection_state_handler(self, handler: Callable[[bool], None]) -> None:
+        if handler in self._connection_state_handlers:
+            self._connection_state_handlers.remove(handler)
+
+    def _set_available(self, available:bool) -> None:
+        """Notify listeners, but only when the state actually flips."""
+        if available == self._is_available: return
+        self._is_available = available
+        _LOGGER.debug(f"Device availability changed to {available}")
+        for handler in list(self._connection_state_handlers):
+            try:
+                handler(available)
+            except Exception as e:
+                # A listener must never be able to kill the receive thread.
+                _LOGGER.error(f"Error in connection state handler: {e}")
+
+    def _update_availability(self) -> None:
+        """Availability is derived from the last response only.
+
+        Deliberately kept separate from _is_connected: that flag gates the polling and
+        reconnect logic in the receive thread, so clearing it on a dropped connection
+        would stop the reconnect attempts and the device would never come back.
+        """
+        self._set_available(time.time() - self._last_response <= SECONDS_UNTILUNAVAILABLE)
+
     def register_update_handler(self, key: NilanProxyDatapointKey|NilanProxySetpointKey, updateMethod: Callable[[float|int, float|int], None]) -> None:
         if self._model_adapter is not None:
             self._model_adapter.register_update_handler(key, updateMethod)
@@ -389,6 +432,7 @@ class NilanProxy():
         while self._listen_thread_open:
             try :
                 self._handle_receive()
+                self._update_availability()
                 if self._is_connected:
                     if time.time() - self._last_dataupdate > DATAPOINT_UPDATEINTERVAL:
                         _LOGGER.debug("Sending data request..")

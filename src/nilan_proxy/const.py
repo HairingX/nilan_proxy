@@ -3,6 +3,7 @@ SOCKET_MAXSIZE = 512
 DATAPOINT_UPDATEINTERVAL = 10 # Seconds since last datapoint update to trigger new update
 SETPOINT_UPDATEINTERVAL = 180 # Seconds since last setpoint update to trigger new update
 SECONDS_UNTILRECONNECT = 20 # Seconds with no response to try reconnecting
+SECONDS_UNTILUNAVAILABLE = 60 # Seconds with no response before the device is reported unavailable
 DISCOVERY_PORT = 5570
 DISCOVERY_TIMEOUT = 3 # Seconds to wait for a device to answer a discovery before giving up
 DISCOVERY_RESEND_INTERVAL = 1 # Seconds between discovery broadcasts while waiting, discovery is udp and may be dropped
