@@ -19,7 +19,11 @@ class NilanProxyModelAdapter:
         if model_to_load == None:
             raise Exception("Invalid model")
         self._loaded_model = model_to_load(device_number, slave_device_number, slave_device_model)
-            
+
+        # Bind per instance. Declared on the class for typing only, sharing them would
+        # mix values and handlers between two devices set up in the same process.
+        self._values = {}
+        self._update_handlers = {}
         self._current_datapoint_list = {100: self._loaded_model.get_datapoints_for_read()}
         self._current_setpoint_list = {200: self._loaded_model.get_setpoints_for_read()}
 

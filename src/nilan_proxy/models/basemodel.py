@@ -383,7 +383,13 @@ class NilanProxyBaseModel:
     _valueMap: Dict[NilanProxyDatapointKey|NilanProxySetpointKey, Dict[float | int, float | int | str]] = {}
 
     def __init__(self) -> None:
-        return
+        # Bind these per instance. They are declared on the class for typing, and
+        # without this every model would read and write the same shared dicts, so
+        # one model would leak its points and configs into every other model.
+        self.datapoints = {}
+        self.setpoints = {}
+        self._configs = {}
+        self._valueMap = {}
 
     def get_model_name(self) -> str:
         return self._attr_model_name
@@ -414,8 +420,10 @@ class NilanProxyBaseModel:
 
     # def addMissingDefaultConfigs(self):
         # Update self._configs with missing items from DEFAULT_CONFIGS
+        # Copy each config, models modify their own entries afterwards and must not
+        # write through into the shared defaults.
         self._configs.update({
-            key: value for key, value in DEFAULT_CONFIGS.items()
+            key: NilanProxyPointConfig(**value) for key, value in DEFAULT_CONFIGS.items()
             if key not in self._configs and (key in self.setpoints or key in self.datapoints)
         })
     

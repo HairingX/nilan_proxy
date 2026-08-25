@@ -7,6 +7,53 @@ class NilanProxyCTS602(NilanProxyBaseModel):
         self._attr_manufacturer="Nilan"
         self._attr_model_name="CTS 602"
 
+        # Must be defined before any device_has_quirk lookup below.
+        self._quirks = {
+            "hotwaterTempSensor": [
+                9, 10, 11,  12,  18, 19,
+                20, 21, 23,  30,  32, 34,
+                38, 43, 44, 144, 244
+            ],
+            "sacrificialAnode": [
+                9, 10,  11,  12, 18, 19,
+                20, 21,  23,  30, 34, 38,
+                43, 44, 144, 244
+            ],
+            "reheat": [
+                2,   3,   4,  9, 10, 11, 12, 13, 18,
+                19,  20,  21, 23, 26, 27, 30, 31, 33,
+                34,  35,  36, 38, 39, 40, 41, 43, 44,
+                45, 144, 244
+            ],
+            "exhaustTempSensor": [ 2, 13, 27, 31 ],
+            "antiLegionella": [
+                3,  4,  9, 10,  11,  12, 18,
+                19, 20, 21, 23,  30,  32, 34,
+                38, 43, 44, 45, 144, 244
+            ],
+            "hotwaterTempSet": [
+                9, 10, 11,  12,  13, 18, 19,
+                20, 21, 23,  30,  31, 32, 34,
+                38, 43, 44, 144, 244
+            ],
+            "summerTemperatures": [
+                2,  4,  9, 10, 12, 13, 19,  21,
+                26, 30, 31, 32, 33, 34, 35,  36,
+                38, 39, 40, 41, 43, 44, 45, 144,
+                244
+            ],
+            "coolingPriority": [
+                2,  9, 10, 12, 13,  30,
+                31, 32, 38, 43, 44, 144,
+                244
+            ],
+            "coolingOffset": [
+                4,  9, 10, 12, 19,  21,  26,
+                30, 32, 33, 35, 36,  38,  39,
+                40, 41, 43, 44, 45, 144, 244
+            ]
+        }
+
         self.datapoints = {
             NilanProxyDatapointKey.BYPASS_ACTIVE: NilanProxyDatapoint(read_address=187, divider=1, signed=False),
             NilanProxyDatapointKey.CO2_LEVEL: NilanProxyDatapoint(read_address=53, divider=1, signed=False),
@@ -66,51 +113,6 @@ class NilanProxyCTS602(NilanProxyBaseModel):
         #place config modifiers here
 
         
-        self._quirks = {
-            "hotwaterTempSensor": [
-                9, 10, 11,  12,  18, 19,
-                20, 21, 23,  30,  32, 34,
-                38, 43, 44, 144, 244
-            ],
-            "sacrificialAnode": [
-                9, 10,  11,  12, 18, 19,
-                20, 21,  23,  30, 34, 38,
-                43, 44, 144, 244
-            ],
-            "reheat": [
-                2,   3,   4,  9, 10, 11, 12, 13, 18,
-                19,  20,  21, 23, 26, 27, 30, 31, 33,
-                34,  35,  36, 38, 39, 40, 41, 43, 44,
-                45, 144, 244
-            ],
-            "exhaustTempSensor": [ 2, 13, 27, 31 ],
-            "antiLegionella": [
-                3,  4,  9, 10,  11,  12, 18,
-                19, 20, 21, 23,  30,  32, 34,
-                38, 43, 44, 45, 144, 244
-            ],
-            "hotwaterTempSet": [
-                9, 10, 11,  12,  13, 18, 19,
-                20, 21, 23,  30,  31, 32, 34,
-                38, 43, 44, 144, 244
-            ],
-            "summerTemperatures": [
-                2,  4,  9, 10, 12, 13, 19,  21,
-                26, 30, 31, 32, 33, 34, 35,  36,
-                38, 39, 40, 41, 43, 44, 45, 144,
-                244
-            ],
-            "coolingPriority": [
-                2,  9, 10, 12, 13,  30,
-                31, 32, 38, 43, 44, 144,
-                244
-            ],
-            "coolingOffset": [
-                4,  9, 10, 12, 19,  21,  26,
-                30, 32, 33, 35, 36,  38,  39,
-                40, 41, 43, 44, 45, 144, 244
-            ]
-        }
         
         
     def device_has_quirk(self, quirk:str, device:int) -> bool:
