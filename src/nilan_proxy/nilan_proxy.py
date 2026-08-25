@@ -1,6 +1,7 @@
 import asyncio
 from collections.abc import Callable
 from enum import Enum
+import ipaddress
 from random import randint
 import socket
 import threading
@@ -15,7 +16,7 @@ from .models import ( NilanProxyDatapointKey, NilanProxySetpointKey, NilanProxyD
 from .nilan_proxy_modeladapter import NilanProxyModelAdapter
 from .protocol import (ProxyPacketType,  ProxyPayloadIPX, ProxyPayloadCrypt, ProxyPayloadCP_ID,  ProxyPacketBuilder, NilanProxyCommandBuilder, NilanProxyCommandBuilderReadArgs)
 
-from .const import ( SOCKET_TIMEOUT, SOCKET_MAXSIZE, DATAPOINT_UPDATEINTERVAL, SETPOINT_UPDATEINTERVAL, SECONDS_UNTILRECONNECT, DISCOVERY_PORT)
+from .const import ( SOCKET_TIMEOUT, SOCKET_MAXSIZE, DATAPOINT_UPDATEINTERVAL, SETPOINT_UPDATEINTERVAL, SECONDS_UNTILRECONNECT, DISCOVERY_PORT, DISCOVERY_TIMEOUT, DISCOVERY_RESEND_INTERVAL, DISCOVERY_RECONNECT_INTERVAL)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -44,6 +45,7 @@ class NilanProxy():
     _last_response:float = 0
     _last_dataupdate:float = 0
     _last_setpointupdate:float = 0
+    _last_discovery:float = 0
 
     _socket = None
     _listen_thread = None
@@ -74,14 +76,48 @@ class NilanProxy():
     def get_device_manufacturer(self): return None if self._model_adapter is None else self._model_adapter.get_manufacturer()
     def get_loaded_model_name(self): return None if self._model_adapter is None else self._model_adapter.get_model_name()
     
+    @staticmethod
+    def sanitize_device_ip(device_ip:str|None) -> str|None:
+        """Return device_ip as a valid IPv4 string, or None when it is not usable.
+
+        Only literal IPv4 addresses are accepted. Hostnames are rejected on purpose:
+        the address is only a cache that discovery refreshes, and anything else would
+        end up in a name lookup inside socket.sendto instead of failing here.
+        """
+        if device_ip is None: return None
+        value = str(device_ip).strip()
+        if len(value) == 0: return None
+        try:
+            return str(ipaddress.IPv4Address(value))
+        except ValueError:
+            _LOGGER.warning(f"Ignoring invalid device ip: '{device_ip}'. Falling back to discovery.")
+            return None
+
+    @staticmethod
+    def sanitize_device_port(device_port:int|None) -> int|None:
+        """Return device_port as a valid port number, or None when it is not usable."""
+        if device_port is None: return None
+        try:
+            value = int(device_port)
+        except (TypeError, ValueError):
+            _LOGGER.warning(f"Ignoring invalid device port: '{device_port}'. Falling back to discovery.")
+            return None
+        if value <= 0 or value > 65535:
+            _LOGGER.warning(f"Ignoring invalid device port: '{device_port}'. Falling back to discovery.")
+            return None
+        return value
+
     def set_device(self, device_id:str, device_ip:str|None=None, device_port:int|None=None) -> None:
+        """Set the device to talk to. Leave device_ip/device_port unset to let discovery find the address."""
         self._device_id = device_id
-        if device_ip is None or device_port is None:
+        ip = self.sanitize_device_ip(device_ip)
+        port = self.sanitize_device_port(device_port)
+        if ip is None or port is None:
             self.retrieve_device_ip()
         else:
-            self._device_ip = device_ip
-            self._device_port = device_port
-            self._discovered_devices[self._device_id] = (device_ip, device_port)
+            self._device_ip = ip
+            self._device_port = port
+            self._discovered_devices[self._device_id] = (ip, port)
         
     def start_listening(self) -> bool:
         if self._listen_thread_open: return False
@@ -118,9 +154,9 @@ class NilanProxy():
         await asyncio.sleep(0.5) # Allow for all devices to reply
         return self._discovered_devices
 
-    def retrieve_device_ip(self) -> None:
+    def retrieve_device_ip(self, force_discovery:bool=False) -> None:
         # Check if we already know the IP from earlier
-        if self._device_id in self._discovered_devices:
+        if not force_discovery and self._device_id in self._discovered_devices:
             self._device_ip = self._discovered_devices[self._device_id][0]
             self._device_port = self._discovered_devices[self._device_id][1]
         else:
@@ -130,6 +166,9 @@ class NilanProxy():
         if self._socket == None:
             return False
         if self._listen_thread_open == False:
+            return False
+        if self._device_ip is None:
+            _LOGGER.debug("No device address known yet, cannot connect.")
             return False
         self._connection_error = None
         ipx_payload = ProxyPayloadIPX()
@@ -147,13 +186,22 @@ class NilanProxy():
             await asyncio.sleep(0.2)
 
     async def wait_for_discovery(self) -> bool:
-        """Wait for discovery of ip to be done"""
-        discovery_timeout = time.time() + 3
+        """Wait for discovery of ip to be done.
+
+        Discovery is a udp broadcast and may be dropped without notice, so resend it
+        while waiting. A single lost packet should not fail the whole discovery.
+        """
+        discovery_timeout = time.time() + DISCOVERY_TIMEOUT
+        next_resend = time.time() + DISCOVERY_RESEND_INTERVAL
         while True:
             if self._device_id in self._discovered_devices and self._device_ip is not None:
                 return True
-            if time.time() > discovery_timeout:
+            now = time.time()
+            if now > discovery_timeout:
                 return False
+            if now >= next_resend:
+                next_resend = now + DISCOVERY_RESEND_INTERVAL
+                self.send_discovery(self._device_id)
             await asyncio.sleep(0.2)
 
     async def wait_for_data(self) -> bool:
@@ -253,11 +301,12 @@ class NilanProxy():
             device_id = discovery_response[0: device_id_length].decode("ascii")
             if "remote.lscontrol.dk" in device_id:
                 # This is a valid reponse from a ProxyConnect device!
-                # Add the device Id and IP to our list if not seen before.
-                if device_id not in self._discovered_devices:
-                    self._discovered_devices[device_id] = address
+                # Always store the address, the device may have been given a new one
+                # since we last saw it. The device id is what identifies it, not the address.
+                self._discovered_devices[device_id] = address
             if device_id == self._device_id:
                 self._device_ip = address[0]
+                self._device_port = address[1]
             return
         if message[0:4] != self._client_id: # Not a packet intented for us
             return
@@ -347,6 +396,11 @@ class NilanProxy():
                     if time.time() - self._last_setpointupdate > SETPOINT_UPDATEINTERVAL:                    
                         self._send_setpoint_state_request(200)
                     if time.time() - self._last_response > SECONDS_UNTILRECONNECT:
+                        # The address is only a cache. The device may have been given a new
+                        # one while we were unable to reach it, so ask discovery again.
+                        if time.time() - self._last_discovery > DISCOVERY_RECONNECT_INTERVAL:
+                            self._last_discovery = time.time()
+                            self.retrieve_device_ip(force_discovery=True)
                         self.connect_to_device()
             except Exception as e:
                 _LOGGER.error(f"Error in receive thread: {e}")
