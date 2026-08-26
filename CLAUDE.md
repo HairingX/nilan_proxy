@@ -33,9 +33,10 @@ pitfalls below.
 3. **Run the `Release` workflow from the Actions tab.** That is the release step.
    Do not press Publish on the draft.
 
-`Release` reads the version from the newest draft and hands it to the composite
-action in `.github/actions/release-publish`, which does the whole thing in one
-direction:
+`Release` takes an optional version. Leave it empty and it reads the version from the
+newest draft; fill it in to jump a minor or major without relabelling merged pull
+requests. Either way it hands the version to the composite action in
+`.github/actions/release-publish`, which does the whole thing in one direction:
 
 ```
 validate version -> check the tag is free -> check PyPI does not have it
@@ -43,8 +44,9 @@ validate version -> check the tag is free -> check PyPI does not have it
 -> capture the draft body, delete the draft -> gh release create -> publish to PyPI
 ```
 
-`Release manual` does the same with a version you type, for jumping a minor or major
-without relabelling merged pull requests. **It does not reach PyPI**, see below.
+**There is deliberately only one release workflow.** PyPI verifies the workflow
+filename, so a release cut from any other file would tag and publish on GitHub but
+never reach PyPI, leaving `nilan_connect` unable to install the version it pins.
 
 ### How the next version number is chosen
 
@@ -64,7 +66,7 @@ anything labelled `skip-changelog`. An autolabeler adds `bug` for branches named
 `fix/...` and `feature request` for `feature/...`.
 
 So: **to release anything other than a patch, label the pull request before merging
-it**, or use `Release manual`.
+it**, or type the version into `Release`.
 
 ### Pitfall: never publish the draft by hand
 
@@ -87,9 +89,9 @@ listens for `release: published` any more.
 Trusted publishing verifies the repository and the **workflow filename**, both of
 which are required in the publisher configuration. The OIDC token is bound to the
 workflow, so a workflow at `foo.yml` cannot impersonate one at `bar.yml`. Renaming
-`release.yml` therefore breaks the upload, silently, and that is also why `Release
-manual` cannot publish to PyPI: it runs from a different file, so it cuts a GitHub
-release only.
+`release.yml` therefore breaks the upload, silently. It is also why the release is a
+single workflow with an optional version input rather than a second file: a second
+file could not publish to PyPI.
 
 The **GitHub environment is optional** in the publisher configuration, and for this
 project it is currently unset, meaning PyPI accepts a publish from any environment.
