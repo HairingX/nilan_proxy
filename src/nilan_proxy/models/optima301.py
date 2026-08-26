@@ -1,4 +1,4 @@
-from .basemodel import ( NilanProxyBaseModel, NilanProxyDatapointKey, NilanProxyDatapoint, NilanProxySetpointKey, NilanProxySetpoint, NilanProxyUnits )
+from .basemodel import ( NilanProxyBaseModel, NilanProxyDatapointKey, NilanProxyDatapoint, NilanProxySetpointKey, NilanProxySetpoint )
 
 class NilanProxyOptima301(NilanProxyBaseModel):
     def __init__(self, device_number:int, slave_device_number:int, slave_device_model:int):
@@ -38,4 +38,3 @@ class NilanProxyOptima301(NilanProxyBaseModel):
         self.set_default_configs()
         
         #place config modifiers here
-        self._configs[NilanProxySetpointKey.FILTER_REPLACE_INTERVAL]["unit_of_measurement"] = NilanProxyUnits.MONTHS
