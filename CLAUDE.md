@@ -84,10 +84,18 @@ listens for `release: published` any more.
 
 ### Pitfall: PyPI is bound to release.yml
 
-Trusted publishing is configured against this repository, the workflow filename
-`release.yml` and the environment name `pypi`. Renaming any of the three silently
-breaks the upload. It is also why `Release manual` cannot publish to PyPI; it cuts a
-GitHub release only.
+Trusted publishing verifies the repository and the **workflow filename**, both of
+which are required in the publisher configuration. The OIDC token is bound to the
+workflow, so a workflow at `foo.yml` cannot impersonate one at `bar.yml`. Renaming
+`release.yml` therefore breaks the upload, silently, and that is also why `Release
+manual` cannot publish to PyPI: it runs from a different file, so it cuts a GitHub
+release only.
+
+The **GitHub environment is optional** in the publisher configuration, and for this
+project it is currently unset, meaning PyPI accepts a publish from any environment.
+The `environment: pypi` in `release.yml` is therefore declared but not enforced on
+PyPI's side. PyPI recommends constraining it, and once that is done the environment
+name becomes part of the binding too and must not be renamed either.
 
 PyPI refuses to overwrite an existing version, so the composite action checks up
 front and fails before tagging rather than after.
