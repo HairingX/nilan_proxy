@@ -166,6 +166,9 @@ inherits all of them.
 
 ## Branches and pull requests
 
+- Process changes - CI, the release, the release draft, these conventions - go straight to
+  `main`. A change to the library itself - its code, tests or documentation - goes through a
+  branch and a pull request.
 - Name every branch by the kind of change, as the release draft's labels follow the name:
   `feature/<what>` is labelled `feature request`, `fix/<what>` is labelled `bug`, and
   `chore/<what>` - CI, tooling, documentation - is labelled `chore`.
