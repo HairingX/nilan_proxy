@@ -35,14 +35,23 @@ pitfalls below.
 
 `Release` takes an optional version. Leave it empty and it reads the version from the
 newest draft; fill it in to jump a minor or major without relabelling merged pull
-requests. Either way it hands the version to the composite action in
-`.github/actions/release-publish`, which does the whole thing in one direction:
+requests, or to cut a pre-release. It runs only from `main`, and does the whole thing
+in one direction, with nothing leaving the runner until it has been checked:
 
 ```
-validate version -> check the tag is free -> check PyPI does not have it
--> bump __version__ -> commit -> push -> tag -> build -> verify the built version
--> capture the draft body, delete the draft -> gh release create -> publish to PyPI
+resolve the version -> refuse it if tagged or on PyPI -> run the tests on that commit
+-> set __version__, commit, tag -> build -> install the wheel and check that
+__version__ and the metadata both say the version -> push commit and tag atomically
+-> publish to PyPI -> GitHub release with the draft's notes, draft deleted
 ```
+
+The version must be canonical PEP 440, `MAJOR.MINOR.PATCH` with an optional
+pre-release: `1.2.3`, `1.2.3rc1`. `1.2.3-rc1` is refused, because the build would
+write `1.2.3rc1` into the file names and the tag would name another version. A
+pre-release is marked as one on GitHub, so it never becomes "latest".
+
+The push goes to `main` only as a fast-forward from the tested commit. If `main`
+moved while the release ran, the push is refused and nothing is published.
 
 **There is deliberately only one release workflow.** PyPI verifies the workflow
 filename, so a release cut from any other file would tag and publish on GitHub but
@@ -99,8 +108,14 @@ The `environment: pypi` in `release.yml` is therefore declared but not enforced 
 PyPI's side. PyPI recommends constraining it, and once that is done the environment
 name becomes part of the binding too and must not be renamed either.
 
-PyPI refuses to overwrite an existing version, so the composite action checks up
-front and fails before tagging rather than after.
+PyPI refuses to overwrite an existing version, so `Release` checks up front and
+fails before tagging rather than after.
+
+### Actions are pinned
+
+Every action is pinned to a commit SHA, with its version in a comment, so a moved
+tag cannot change what runs. `.github/dependabot.yml` proposes updates as pull
+requests, which the tests check before they are merged.
 
 ### Coordinating with nilan_connect
 
@@ -117,8 +132,10 @@ python3 -m unittest discover -s . -p "test_*.py"
 ```
 
 They must be run from inside `test/`; `common.py` puts `../src` on the path.
-`.github/workflows/test.yml` runs them on push and pull request for Python 3.12,
-3.13 and 3.14.
+`.github/workflows/tests.yml` runs them on push and pull request for Python 3.12,
+3.13 and 3.14, against the installed package, after checking that `__version__`
+and the package metadata agree. `Release` runs the same workflow on the commit it
+releases.
 
 `test/modelTester.py` holds the checks every model must pass. A new model gets a
 subclass that sets `loadedModel`, `expectedName` and `expectedManufacturer`, and

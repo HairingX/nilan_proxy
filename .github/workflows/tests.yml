@@ -1,0 +1,59 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+  # The Release workflow runs these on the exact commit it is about to release.
+  workflow_call:
+    inputs:
+      ref:
+        description: The commit to test.
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.workflow }}-${{ github.event_name }}-${{ inputs.ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13", "3.14"]
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install the package
+        run: python -m pip install .
+
+      # PyPA: a test should hold __version__ and the installed metadata to the same value.
+      - name: Check __version__ matches the package metadata
+        run: |
+          python - <<'PY'
+          import importlib, importlib.metadata, sys
+          package = "nilan_proxy"
+          found = importlib.import_module(package).__version__, importlib.metadata.version(package)
+          if found[0] != found[1]:
+              sys.exit(f"::error::__version__ says {found[0]}, the metadata {found[1]}")
+          print(f"{package} {found[0]}")
+          PY
+
+      - name: Run tests
+        working-directory: test
+        run: python -m unittest discover -s . -p "test_*.py" -v
