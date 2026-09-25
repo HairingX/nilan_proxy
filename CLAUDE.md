@@ -111,11 +111,11 @@ name becomes part of the binding too and must not be renamed either.
 PyPI refuses to overwrite an existing version, so `Release` checks up front and
 fails before tagging rather than after.
 
-### Actions are pinned
+### Actions are kept current
 
-Every action is pinned to a commit SHA, with its version in a comment, so a moved
-tag cannot change what runs. `.github/dependabot.yml` proposes updates as pull
-requests, which the tests check before they are merged.
+Actions are referred to by their major version, such as `actions/checkout@v7`.
+`.github/dependabot.yml` proposes a new major as a pull request, which the tests
+check before it is merged.
 
 ### Coordinating with nilan_connect
 
