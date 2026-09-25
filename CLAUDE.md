@@ -146,3 +146,15 @@ inherits all of them.
   stable identity. Discovery refreshes the address, which is what lets a unit
   change DHCP lease without breaking anything. Do not store an address as if it
   were permanent, and do not accept a hostname where an address is expected.
+
+## Branches and pull requests
+
+- Process changes - CI, the release, the release draft, these conventions - go straight to
+  `main`. A change to the library itself - its code, tests or documentation - goes through a
+  branch and a pull request.
+- Name every branch by the kind of change, as the release draft's labels follow the name:
+  `feature/<what>` is labelled `feature request`, `fix/<what>` is labelled `bug`, and
+  `chore/<what>` - CI, tooling, documentation - is labelled `chore`.
+- A pull request's text describes only its own change: what it does and how it was tested. Never
+  releases to come, merge order, or other repositories.
+- Put `major` or `minor` on a pull request that needs that bump; a patch is the default.
