@@ -37,7 +37,7 @@ pitfalls below.
 version from the tags, PyPI and the draft: the next release candidate of the open
 series (`1.2.0rc1` -> `1.2.0rc2`), or the final release that ends it (`1.2.0`); a
 draft naming a higher version starts a new series. Type a version only to override
-one worked out wrongly. It runs only from `main`, and does the whole thing in one
+one worked out wrongly, or for a new major. It runs only from `main`, and does the whole thing in one
 direction, with nothing leaving the runner until it has been checked:
 
 ```
@@ -67,18 +67,20 @@ requests:
 
 | Label on the PR | Result |
 |---|---|
-| `major` | major bump |
+| `breaking-change` | minor bump |
 | `minor` | minor bump |
-| `patch` | patch bump |
 | no label | **patch bump**, this is the default |
+
+**No label gives a major bump**, as a label placed wrongly must not release a new
+major version, and `Release` never works one out: type it as the override.
 
 The same file groups the changelog by label (`breaking-change`, `enhancement` /
 `feature request`, `bug` / `fix` / `bugfix`, `chore`, `dependencies`) and drops
 anything labelled `skip-changelog`. An autolabeler adds `bug` for branches named
 `fix/...` and `feature request` for `feature/...`.
 
-So: **to release anything other than a patch, label the pull request before merging
-it**, or type the version into `Release` as the override.
+So: **to release a minor, label the pull request before merging it**, or type the
+version into `Release` as the override.
 
 ### Pitfall: never publish the draft by hand
 
@@ -178,4 +180,5 @@ inherits all of them.
   `chore/<what>` - CI, tooling, documentation - is labelled `chore`.
 - A pull request's text describes only its own change: what it does and how it was tested. Never
   releases to come, merge order, or other repositories.
-- Put `major` or `minor` on a pull request that needs that bump; a patch is the default.
+- Put `breaking-change` on a pull request that breaks the API, and `minor` on one that needs a
+  minor bump; both give a minor bump, and a patch is the default. No label gives a major.
