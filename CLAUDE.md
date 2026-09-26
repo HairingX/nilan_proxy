@@ -25,11 +25,10 @@ hand.** Both are done for you, and doing either yourself breaks the release. See
 pitfalls below.
 
 1. **Merge a pull request into `main`.** `.github/workflows/release-drafter.yml`
-   creates or updates a **draft release**, computing the next version and writing the
-   changelog from merged pull request titles.
+   creates or updates a **draft release** proposing the next version.
 2. **Check the draft** at
    [releases](https://github.com/HairingX/nilan_proxy/releases). It is named `vX.Y.Z`
-   and holds the accumulated notes since the last release.
+   after the version it proposes, and lists what was merged since the last final release.
 3. **Run the `Release` workflow from the Actions tab.** That is the release step.
    Do not press Publish on the draft.
 
@@ -37,15 +36,16 @@ pitfalls below.
 version from the tags, PyPI and the draft: the next release candidate of the open
 series (`1.2.0rc1` -> `1.2.0rc2`), or the final release that ends it (`1.2.0`); a
 draft naming a higher version starts a new series. Type a version only to override
-one worked out wrongly, or for a new major. It runs only from `main`, and does the whole thing in one
-direction, with nothing leaving the runner until it has been checked:
+one worked out wrongly, or for a new major. It runs only from `main`, and does the
+whole thing in one direction, with nothing leaving the runner until it has been
+checked:
 
 ```
 work out the version -> refuse it unless higher than every version tagged or on PyPI
 -> run the tests on that commit
 -> set __version__, commit, tag -> build -> install the wheel and check that
 __version__ and the metadata both say the version -> push commit and tag atomically
--> publish to PyPI -> GitHub release with the draft's notes, draft deleted
+-> publish to PyPI -> GitHub release with notes GitHub writes, draft deleted
 ```
 
 An override must be canonical PEP 440, `MAJOR.MINOR.PATCH` with an optional
@@ -74,10 +74,17 @@ requests:
 **No label gives a major bump**, as a label placed wrongly must not release a new
 major version, and `Release` never works one out: type it as the override.
 
-The same file groups the changelog by label (`breaking-change`, `enhancement` /
-`feature request`, `bug` / `fix` / `bugfix`, `chore`, `dependencies`) and drops
-anything labelled `skip-changelog`. An autolabeler adds `bug` for branches named
-`fix/...` and `feature request` for `feature/...`.
+An autolabeler in the same file adds `bug` for branches named `fix/...`,
+`feature request` for `feature/...` and `chore` for `chore/...`.
+
+### The release notes
+
+GitHub writes a release's notes from the pull requests merged since the previous
+release candidate or final release; for a final release, since the previous final
+release, so it holds everything its release candidates had. `.github/release.yml`
+groups them by label (`breaking-change`, `enhancement` / `feature request`, `bug` /
+`fix` / `bugfix`, `chore`, `dependencies`) and drops anything labelled
+`skip-changelog`.
 
 So: **to release a minor, label the pull request before merging it**, or type the
 version into `Release` as the override.
