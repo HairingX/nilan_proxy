@@ -33,20 +33,23 @@ pitfalls below.
 3. **Run the `Release` workflow from the Actions tab.** That is the release step.
    Do not press Publish on the draft.
 
-`Release` takes an optional version. Leave it empty and it reads the version from the
-newest draft; fill it in to jump a minor or major without relabelling merged pull
-requests, or to cut a pre-release. It runs only from `main`, and does the whole thing
-in one direction, with nothing leaving the runner until it has been checked:
+`Release` asks for a **release candidate** or a **final release**, and works out the
+version from the tags, PyPI and the draft: the next release candidate of the open
+series (`1.2.0rc1` -> `1.2.0rc2`), or the final release that ends it (`1.2.0`); a
+draft naming a higher version starts a new series. Type a version only to override
+one worked out wrongly. It runs only from `main`, and does the whole thing in one
+direction, with nothing leaving the runner until it has been checked:
 
 ```
-resolve the version -> refuse it if tagged or on PyPI -> run the tests on that commit
+work out the version -> refuse it unless higher than every version tagged or on PyPI
+-> run the tests on that commit
 -> set __version__, commit, tag -> build -> install the wheel and check that
 __version__ and the metadata both say the version -> push commit and tag atomically
 -> publish to PyPI -> GitHub release with the draft's notes, draft deleted
 ```
 
-The version must be canonical PEP 440, `MAJOR.MINOR.PATCH` with an optional
-pre-release: `1.2.3`, `1.2.3rc1`. `1.2.3-rc1` is refused, because the build would
+An override must be canonical PEP 440, `MAJOR.MINOR.PATCH` with an optional
+pre-release, of the kind chosen: `1.2.3`, `1.2.3rc1`. `1.2.3-rc1` is refused, because the build would
 write `1.2.3rc1` into the file names and the tag would name another version. A
 pre-release is marked as one on GitHub, so it never becomes "latest".
 
@@ -75,7 +78,7 @@ anything labelled `skip-changelog`. An autolabeler adds `bug` for branches named
 `fix/...` and `feature request` for `feature/...`.
 
 So: **to release anything other than a patch, label the pull request before merging
-it**, or type the version into `Release`.
+it**, or type the version into `Release` as the override.
 
 ### Pitfall: never publish the draft by hand
 
@@ -99,7 +102,7 @@ Trusted publishing verifies the repository and the **workflow filename**, both o
 which are required in the publisher configuration. The OIDC token is bound to the
 workflow, so a workflow at `foo.yml` cannot impersonate one at `bar.yml`. Renaming
 `release.yml` therefore breaks the upload, silently. It is also why the release is a
-single workflow with an optional version input rather than a second file: a second
+single workflow with a choice of release rather than a second file: a second
 file could not publish to PyPI.
 
 The **GitHub environment is optional** in the publisher configuration, and for this
@@ -108,8 +111,8 @@ The `environment: pypi` in `release.yml` is therefore declared but not enforced 
 PyPI's side. PyPI recommends constraining it, and once that is done the environment
 name becomes part of the binding too and must not be renamed either.
 
-PyPI refuses to overwrite an existing version, so `Release` checks up front and
-fails before tagging rather than after.
+PyPI refuses to take a version twice, even one yanked, so `Release` refuses any
+version not higher than every version PyPI has, before tagging rather than after.
 
 ### Actions are kept current
 
@@ -134,8 +137,9 @@ python3 -m unittest discover -s . -p "test_*.py"
 They must be run from inside `test/`; `common.py` puts `../src` on the path.
 `.github/workflows/tests.yml` runs them on push and pull request for Python 3.12,
 3.13 and 3.14, against the installed package, after checking that `__version__`
-and the package metadata agree. `Release` runs the same workflow on the commit it
-releases.
+and the package metadata agree, and type checks and tests the release scripts in
+`.github/scripts` with pytest and pyright strict. `Release` runs the same workflow on
+the commit it releases.
 
 `test/modelTester.py` holds the checks every model must pass. A new model gets a
 subclass that sets `loadedModel`, `expectedName` and `expectedManufacturer`, and
